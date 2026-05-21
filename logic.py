@@ -12,7 +12,7 @@ AGGRESSIVE = ["SUIUSDT", "HYPEUSDT", "PEPEUSDT", "SHIBUSDT", "DOGEUSDT"]
 def get_coin_universe():
     return CONSERVATIVE + MODERATE + AGGRESSIVE
 
-def load_coin_scores():
+def load_coin_scores(sentiment_impacts=None):
     # Base score for all coins is 10.0
     universe = get_coin_universe()
     scores = {coin: 10.0 for coin in universe}
@@ -30,10 +30,20 @@ def load_coin_scores():
                     # Prevent scores from going negative or zero
                     if scores[coin] < 1.0:
                         scores[coin] = 1.0
+                        
+    # Apply news sentiment impacts
+    if sentiment_impacts:
+        for impact in sentiment_impacts:
+            coin = impact["coin"]
+            if coin in scores:
+                scores[coin] += impact["adjustment"]
+                if scores[coin] < 1.0:
+                    scores[coin] = 1.0
+                    
     return scores
 
-def pick_portfolio():
-    scores = load_coin_scores()
+def pick_portfolio(sentiment_impacts=None):
+    scores = load_coin_scores(sentiment_impacts)
     valid_symbols = get_tradeable_symbols(limit=100)
     
     available_stable = [c for c in CONSERVATIVE if c in valid_symbols]

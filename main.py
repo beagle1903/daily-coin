@@ -4,7 +4,7 @@ from rich.table import Table
 
 from logic import pick_portfolio, evaluate_performance, load_coin_scores
 from history import add_portfolio_record
-from news import get_latest_news
+from news import get_latest_news, analyze_news_impact
 
 console = Console()
 
@@ -36,6 +36,7 @@ def main():
     console.print("\n[bold yellow]Fetching latest crypto news...[/bold yellow]")
     news_items = get_latest_news(limit=5)
     
+    impacts = []
     if news_items:
         news_table = Table(title="Top Crypto Headlines")
         news_table.add_column("Source", style="cyan")
@@ -46,15 +47,32 @@ def main():
         for item in news_items:
             news_table.add_row(item["source"], item["title"], item["link"])
         console.print(news_table)
+        
+        impacts = analyze_news_impact(news_items)
+        if impacts:
+            console.print("\n[bold yellow]Analyzing news sentiment...[/bold yellow]")
+            impact_table = Table(title="News Sentiment Impact")
+            impact_table.add_column("Coin", style="magenta")
+            impact_table.add_column("Headline Snippet", style="white")
+            impact_table.add_column("Sentiment", style="cyan")
+            impact_table.add_column("Score Adj.", justify="right")
+            
+            for imp in impacts:
+                color = "green" if imp["adjustment"] > 0 else "red"
+                adj_str = f"[{color}]{imp['adjustment']:+.2f}[/{color}]"
+                snippet = imp["headline"][:45] + "..." if len(imp["headline"]) > 45 else imp["headline"]
+                impact_table.add_row(imp["coin"], snippet, imp["sentiment"], adj_str)
+            console.print(impact_table)
+            
     else:
         console.print("No news available right now.")
         
     console.print("\n[bold yellow]Generating today's portfolio...[/bold yellow]")
     
-    scores = load_coin_scores()
+    scores = load_coin_scores(impacts)
     
     try:
-        portfolio, prices = pick_portfolio()
+        portfolio, prices = pick_portfolio(impacts)
     except Exception as e:
         console.print(f"[bold red]Error generating portfolio: {e}[/bold red]")
         return

@@ -5,3 +5,4 @@ pydantic
 python-binance
 python-dotenv
 feedparser
+vaderSentiment

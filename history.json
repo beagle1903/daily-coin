@@ -40,6 +40,31 @@
       "SOLUSDT": 86.53,
       "SUIUSDT": 1.1064
     },
+    "evaluated": true,
+    "performance": {
+      "ETHUSDT": 0.011731087381561155,
+      "BTCUSDT": 0.005490889091253385,
+      "LINKUSDT": 0.02286189338044276,
+      "SOLUSDT": 0.015832659193343403,
+      "SUIUSDT": 0.040672451193058505
+    }
+  },
+  {
+    "timestamp": 1779386159.2391798,
+    "portfolio": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "AVAXUSDT",
+      "DOGEUSDT",
+      "LINKUSDT"
+    ],
+    "entry_prices": {
+      "BTCUSDT": 78052.32,
+      "ETHUSDT": 2152.26,
+      "AVAXUSDT": 9.507,
+      "DOGEUSDT": 0.10643,
+      "LINKUSDT": 9.842
+    },
     "evaluated": false
   }
 ]
