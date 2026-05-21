@@ -5,11 +5,9 @@ from rich.table import Table
 from logic import pick_portfolio, evaluate_performance, load_coin_scores
 from history import add_portfolio_record
 
-app = typer.Typer(help="Daily Crypto Portfolio CLI")
 console = Console()
 
-@app.command()
-def run():
+def main():
     """
     Evaluates yesterday's portfolio (if any) and generates a new portfolio of 5 coins.
     """
@@ -69,4 +67,4 @@ def run():
     console.print("\n[bold green]Done! Run again tomorrow to evaluate these picks and get a new portfolio.[/bold green]")
 
 if __name__ == "__main__":
-    app()
+    typer.run(main)
