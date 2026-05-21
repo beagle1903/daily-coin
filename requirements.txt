@@ -4,3 +4,4 @@ pytest
 pydantic
 python-binance
 python-dotenv
+feedparser

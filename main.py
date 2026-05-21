@@ -4,6 +4,7 @@ from rich.table import Table
 
 from logic import pick_portfolio, evaluate_performance, load_coin_scores
 from history import add_portfolio_record
+from news import get_latest_news
 
 console = Console()
 
@@ -31,6 +32,22 @@ def main():
             console.print(table)
     else:
         console.print("No unevaluated past portfolios found.")
+        
+    console.print("\n[bold yellow]Fetching latest crypto news...[/bold yellow]")
+    news_items = get_latest_news(limit=5)
+    
+    if news_items:
+        news_table = Table(title="Top Crypto Headlines")
+        news_table.add_column("Source", style="cyan")
+        news_table.add_column("Headline", style="white")
+        # rich supports clickable links in some terminals using syntax: [link=URL]Text[/link]
+        news_table.add_column("Link", style="blue")
+        
+        for item in news_items:
+            news_table.add_row(item["source"], item["title"], item["link"])
+        console.print(news_table)
+    else:
+        console.print("No news available right now.")
         
     console.print("\n[bold yellow]Generating today's portfolio...[/bold yellow]")
     
