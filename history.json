@@ -65,6 +65,31 @@
       "DOGEUSDT": 0.10643,
       "LINKUSDT": 9.842
     },
+    "evaluated": true,
+    "performance": {
+      "BTCUSDT": -0.0031685156828139406,
+      "ETHUSDT": -0.0033731984053972184,
+      "AVAXUSDT": -0.0028400126222782422,
+      "DOGEUSDT": -0.0035704218735318188,
+      "LINKUSDT": -0.0040642145905304735
+    }
+  },
+  {
+    "timestamp": 1779386615.5898292,
+    "portfolio": [
+      "ETHUSDT",
+      "BTCUSDT",
+      "AVAXUSDT",
+      "SUIUSDT",
+      "PEPEUSDT"
+    ],
+    "entry_prices": {
+      "ETHUSDT": 2145.0,
+      "BTCUSDT": 77805.0,
+      "AVAXUSDT": 9.48,
+      "SUIUSDT": 1.1434,
+      "PEPEUSDT": 3.8e-06
+    },
     "evaluated": false
   }
 ]
