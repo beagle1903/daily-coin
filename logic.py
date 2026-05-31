@@ -3,9 +3,9 @@ from binance_client import get_current_prices, get_tradeable_symbols
 from history import load_history
 
 # Qualitative grouping from docs/crypto_coin_mental_models_and_grouping_report.md
-CONSERVATIVE = ["BTCUSDT", "ETHUSDT"]
-MODERATE = ["SOLUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT"]
-AGGRESSIVE = ["SUIUSDT", "HYPEUSDT", "PEPEUSDT", "SHIBUSDT", "DOGEUSDT"]
+CONSERVATIVE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "XRPUSDT"]
+MODERATE = ["SOLUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT", "DOTUSDT", "LTCUSDT", "MATICUSDT", "ATOMUSDT"]
+AGGRESSIVE = ["SUIUSDT", "HYPEUSDT", "PEPEUSDT", "SHIBUSDT", "DOGEUSDT", "WIFUSDT", "BONKUSDT", "FLOKIUSDT"]
 
 # Stable = Conservative, Volatile = Moderate + Aggressive
 
@@ -42,7 +42,7 @@ def load_coin_scores(sentiment_impacts=None):
                     
     return scores
 
-def pick_portfolio(sentiment_impacts=None):
+def pick_portfolio(sentiment_impacts=None, stable_count=2, volatile_count=3):
     scores = load_coin_scores(sentiment_impacts)
     valid_symbols = get_tradeable_symbols(limit=100)
     
@@ -60,8 +60,8 @@ def pick_portfolio(sentiment_impacts=None):
             pop_copy.remove(choice)
         return list(selected)
 
-    stable_picks = unique_weighted_sample(available_stable, 2)
-    volatile_picks = unique_weighted_sample(available_volatile, 3)
+    stable_picks = unique_weighted_sample(available_stable, min(stable_count, len(available_stable)))
+    volatile_picks = unique_weighted_sample(available_volatile, min(volatile_count, len(available_volatile)))
     
     portfolio = stable_picks + volatile_picks
     prices = get_current_prices(portfolio)

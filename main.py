@@ -8,9 +8,12 @@ from news import get_latest_news, analyze_news_impact
 
 console = Console()
 
-def main():
+def main(
+    stable: int = typer.Option(3, help="Number of stable coins to pick"),
+    volatile: int = typer.Option(6, help="Number of volatile coins to pick")
+):
     """
-    Evaluates yesterday's portfolio (if any) and generates a new portfolio of 5 coins.
+    Evaluates yesterday's portfolio (if any) and generates a new portfolio of coins.
     """
     console.print("[bold blue]Starting Daily Crypto Portfolio...[/bold blue]")
     
@@ -28,7 +31,7 @@ def main():
             for coin, p_change in res["performance"].items():
                 color = "green" if p_change > 0 else "red"
                 pct = f"{p_change * 100:.2f}%"
-                table.add_row(coin, f"[{color}]{pct}[/{color}]")
+                table.add_row(coin.replace("USDT", ""), f"[{color}]{pct}[/{color}]")
             console.print(table)
     else:
         console.print("No unevaluated past portfolios found.")
@@ -61,7 +64,7 @@ def main():
                 color = "green" if imp["adjustment"] > 0 else "red"
                 adj_str = f"[{color}]{imp['adjustment']:+.2f}[/{color}]"
                 snippet = imp["headline"][:45] + "..." if len(imp["headline"]) > 45 else imp["headline"]
-                impact_table.add_row(imp["coin"], snippet, imp["sentiment"], adj_str)
+                impact_table.add_row(imp["coin"].replace("USDT", ""), snippet, imp["sentiment"], adj_str)
             console.print(impact_table)
             
     else:
@@ -72,7 +75,7 @@ def main():
     scores = load_coin_scores(impacts)
     
     try:
-        portfolio, prices = pick_portfolio(impacts)
+        portfolio, prices = pick_portfolio(impacts, stable_count=stable, volatile_count=volatile)
     except Exception as e:
         console.print(f"[bold red]Error generating portfolio: {e}[/bold red]")
         return
@@ -96,7 +99,7 @@ def main():
         c_type = "Stable" if coin in CONSERVATIVE else "Volatile"
         price_str = f"${prices.get(coin, 0):.4f}"
         score_str = f"{scores.get(coin, 10.0):.2f}"
-        p_table.add_row(coin, c_type, price_str, score_str)
+        p_table.add_row(coin.replace("USDT", ""), c_type, price_str, score_str)
         
     console.print(p_table)
     console.print("\n[bold green]Done! Run again tomorrow to evaluate these picks and get a new portfolio.[/bold green]")

@@ -14,15 +14,25 @@ RSS_FEEDS = [
 KEYWORD_MAP = {
     "bitcoin": "BTCUSDT", "btc": "BTCUSDT",
     "ethereum": "ETHUSDT", "eth": "ETHUSDT",
+    "binance": "BNBUSDT", "bnb": "BNBUSDT",
+    "cardano": "ADAUSDT", "ada": "ADAUSDT",
+    "ripple": "XRPUSDT", "xrp": "XRPUSDT",
     "solana": "SOLUSDT", "sol": "SOLUSDT",
     "chainlink": "LINKUSDT", "link": "LINKUSDT",
     "avalanche": "AVAXUSDT", "avax": "AVAXUSDT",
     "uniswap": "UNIUSDT", "uni": "UNIUSDT",
+    "polkadot": "DOTUSDT", "dot": "DOTUSDT",
+    "litecoin": "LTCUSDT", "ltc": "LTCUSDT",
+    "polygon": "MATICUSDT", "matic": "MATICUSDT",
+    "cosmos": "ATOMUSDT", "atom": "ATOMUSDT",
     "sui": "SUIUSDT",
     "hype": "HYPEUSDT",
     "pepe": "PEPEUSDT",
     "shiba": "SHIBUSDT", "shib": "SHIBUSDT",
-    "dogecoin": "DOGEUSDT", "doge": "DOGEUSDT"
+    "dogecoin": "DOGEUSDT", "doge": "DOGEUSDT",
+    "dogwifhat": "WIFUSDT", "wif": "WIFUSDT",
+    "bonk": "BONKUSDT",
+    "floki": "FLOKIUSDT"
 }
 
 def get_latest_news(limit=5):

@@ -27,5 +27,5 @@ venv\Scripts\activate
 source venv/bin/activate
 
 # Generate today's portfolio and evaluate yesterday's picks
-python main.py run
+python main.py
 ```
