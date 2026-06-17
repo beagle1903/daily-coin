@@ -1,12 +1,5 @@
 import pytest
-from logic import get_coin_universe, load_coin_scores
-
-def test_get_coin_universe():
-    universe = get_coin_universe()
-    assert "BTCUSDT" in universe
-    assert "ETHUSDT" in universe
-    assert "PEPEUSDT" in universe
-    assert len(universe) > 5
+from logic import load_coin_scores
 
 def test_load_coin_scores(monkeypatch):
     def mock_load_history():
@@ -18,15 +11,17 @@ def test_load_coin_scores(monkeypatch):
             }
         }]
         
-    def mock_get_technical_indicators(symbol):
-        return {"rsi": 50.0, "macd": 0.0, "signal": 0.0}
+    async def mock_fetch_all_technical_indicators(universe):
+        return {
+            u: {"rsi": 50.0, "macd": 0.0, "signal": 0.0} for u in universe
+        }
         
     import logic
-    import binance_client
     monkeypatch.setattr(logic, "load_history", mock_load_history)
-    monkeypatch.setattr(binance_client, "get_technical_indicators", mock_get_technical_indicators)
+    monkeypatch.setattr(logic, "fetch_all_technical_indicators", mock_fetch_all_technical_indicators)
     
-    scores = load_coin_scores()
+    universe = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+    scores = load_coin_scores(universe)
     assert scores["BTCUSDT"] == 15.0  # 10.0 + 5.0
     assert scores["ETHUSDT"] == 8.0   # 10.0 - 2.0
     assert scores["SOLUSDT"] == 10.0  # untouched

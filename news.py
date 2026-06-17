@@ -3,8 +3,9 @@ import time
 import re
 try:
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+    GLOBAL_ANALYZER = SentimentIntensityAnalyzer()
 except ImportError:
-    SentimentIntensityAnalyzer = None
+    GLOBAL_ANALYZER = None
 
 RSS_FEEDS = [
     "https://cointelegraph.com/rss",
@@ -41,6 +42,8 @@ def get_latest_news(limit=5):
     for url in RSS_FEEDS:
         try:
             feed = feedparser.parse(url)
+            if getattr(feed, 'bozo', 0) == 1 and not feed.entries:
+                continue
             for entry in feed.entries[:limit]:
                 dt_struct = entry.get('published_parsed') or entry.get('updated_parsed')
                 if dt_struct:
@@ -48,7 +51,6 @@ def get_latest_news(limit=5):
                 else:
                     timestamp = 0
                     
-                # Shorten source title for display
                 source = feed.feed.get('title', 'Crypto News')
                 if 'Cointelegraph' in source:
                     source = 'Cointelegraph'
@@ -64,21 +66,16 @@ def get_latest_news(limit=5):
         except Exception:
             pass
             
-    # Sort articles by timestamp descending (newest first)
     articles.sort(key=lambda x: x['timestamp'], reverse=True)
-    
     return articles[:limit]
 
 def analyze_news_impact(articles):
     impacts = []
-    if not SentimentIntensityAnalyzer:
+    if not GLOBAL_ANALYZER:
         return impacts
         
-    analyzer = SentimentIntensityAnalyzer()
-    
     for article in articles:
         headline = article.get("title", "")
-        # Extract words ignoring punctuation
         words = re.findall(r'\b\w+\b', headline.lower())
         
         found_symbols = set()
@@ -87,15 +84,11 @@ def analyze_news_impact(articles):
                 found_symbols.add(KEYWORD_MAP[word])
                 
         if found_symbols:
-            sentiment = analyzer.polarity_scores(headline)
+            sentiment = GLOBAL_ANALYZER.polarity_scores(headline)
             compound = sentiment['compound']
             
-            # Require at least some clear sentiment to act
             if abs(compound) > 0.1:
-                # Multiplier determines how strong the impact is. 
-                # compound is [-1, 1], so multiplier of 2.0 means up to +/- 2.0 to heuristic score.
                 adjustment = compound * 2.0
-                
                 for symbol in found_symbols:
                     impacts.append({
                         "coin": symbol,

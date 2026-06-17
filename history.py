@@ -18,13 +18,9 @@ def save_history(history):
     with open(HISTORY_FILE, "w") as f:
         json.dump(history, f, indent=2)
 
-def clean_old_history():
-    history = load_history()
+def clean_old_history_in_memory(history):
     now = time.time()
-    valid_history = [record for record in history if now - record.get("timestamp", 0) <= TTL_SECONDS]
-    
-    if len(valid_history) != len(history):
-        save_history(valid_history)
+    return [record for record in history if now - record.get("timestamp", 0) <= TTL_SECONDS]
 
 def add_portfolio_record(portfolio, prices):
     history = load_history()
@@ -35,8 +31,8 @@ def add_portfolio_record(portfolio, prices):
         "evaluated": False
     }
     history.append(record)
-    save_history(history)
-    clean_old_history()
+    valid_history = clean_old_history_in_memory(history)
+    save_history(valid_history)
 
 def get_unevaluated_records():
     return [r for r in load_history() if not r.get("evaluated", False)]

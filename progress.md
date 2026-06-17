@@ -14,10 +14,17 @@
 
 - Expanded the `KEYWORD_MAP` in `news.py` to properly cover all altcoins defined in `logic.py`.
 - Refactored `main.py` Typer app to support multiple commands.
-- Implemented dummy `calculate-aid` command (per tasks.json, feat-1) to calculate financial aid from a student profile.
+- Reverted identity shift: project is purely a daily crypto portfolio CLI.
 - Implemented RSI and MACD technical indicators in `binance_client.py` and integrated them into `logic.py`'s scoring heuristic.
 - Fixed `test_load_coin_scores` unit test to mock `get_technical_indicators`, preventing real Binance API calls and resolving test failure.
 - Created unit tests for `calculate_rsi` and `calculate_macd` math in `tests/test_binance_client.py`.
 
+- Implemented asynchronous API fetching (`AsyncClient` + `asyncio.gather`) to remove the N+1 network bottleneck in Binance data fetching.
+- Removed hardcoded category arrays and replaced them with dynamic math-based 30-day variance sorting.
+- Cleaned up inefficient memory I/O in `history.py` to prevent redundant reads and writes.
+- Fixed a Unicode printing bug on Windows for the Rich console by injecting `chcp 65001`.
+- Re-wrote the test suite to strictly use pytest `tmp_path` to avoid unsafe OS operations and patched API requests.
+
 ## Next Steps
-- Implement actual financial aid eligibility logic in `calculate_aid` instead of the dummy placeholder.
+- Continue adding more rigorous tests and error handling.
+- Review and refine the UI display as needed.

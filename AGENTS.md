@@ -1,9 +1,9 @@
 # Agent Instructions
 
-You are an AI coding agent assigned to build and maintain the `daily-coin` financial-aid CLI. 
+You are an AI coding agent assigned to build and maintain the `daily-coin` CLI. 
 
 **Follow this progressive disclosure map for context:**
-1. **Domain & Rules:** Read `docs/context.md` to understand the financial aid rules and user flows.
+1. **Domain & Rules:** Read `docs/context.md` to understand the portfolio generation rules and user flows.
 2. **Technical Blueprint:** Read `docs/architecture.md` to understand the CLI framework and data models.
 3. **Decisions:** Read `docs/decisions.md` to understand past architectural choices.
 4. **Current State:** Read `progress.md` to see what was done in the last session.

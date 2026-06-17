@@ -1,20 +1,14 @@
 import random
-from binance_client import get_current_prices, get_tradeable_symbols
-from history import load_history
+import asyncio
+from binance_client import (
+    get_current_prices, 
+    get_tradeable_symbols,
+    fetch_all_technical_indicators,
+    fetch_all_variances
+)
+from history import load_history, save_history, get_unevaluated_records
 
-# Qualitative grouping from docs/crypto_coin_mental_models_and_grouping_report.md
-CONSERVATIVE = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "XRPUSDT"]
-MODERATE = ["SOLUSDT", "LINKUSDT", "AVAXUSDT", "UNIUSDT", "DOTUSDT", "LTCUSDT", "MATICUSDT", "ATOMUSDT"]
-AGGRESSIVE = ["SUIUSDT", "HYPEUSDT", "PEPEUSDT", "SHIBUSDT", "DOGEUSDT", "WIFUSDT", "BONKUSDT", "FLOKIUSDT"]
-
-# Stable = Conservative, Volatile = Moderate + Aggressive
-
-def get_coin_universe():
-    return CONSERVATIVE + MODERATE + AGGRESSIVE
-
-def load_coin_scores(sentiment_impacts=None):
-    # Base score for all coins is 10.0
-    universe = get_coin_universe()
+def load_coin_scores(universe, sentiment_impacts=None):
     scores = {coin: 10.0 for coin in universe}
     
     # Adjust based on history
@@ -23,56 +17,58 @@ def load_coin_scores(sentiment_impacts=None):
         if record.get("evaluated") and "performance" in record:
             for coin, p_change in record["performance"].items():
                 if coin in scores:
-                    # heuristic: +1 score per 1% gain, -1 score per 1% loss
                     adjustment = p_change * 100
-                    scores[coin] += adjustment
-                    
-                    # Prevent scores from going negative or zero
-                    if scores[coin] < 1.0:
-                        scores[coin] = 1.0
+                    scores[coin] = max(1.0, scores[coin] + adjustment)
                         
     # Apply news sentiment impacts
     if sentiment_impacts:
         for impact in sentiment_impacts:
             coin = impact["coin"]
             if coin in scores:
-                scores[coin] += impact["adjustment"]
-                if scores[coin] < 1.0:
-                    scores[coin] = 1.0
+                scores[coin] = max(1.0, scores[coin] + impact["adjustment"])
                     
-    # Apply Technical Indicator modifiers
-    from binance_client import get_technical_indicators
+    # Apply Technical Indicator modifiers concurrently
+    ti_data = asyncio.run(fetch_all_technical_indicators(universe))
+    
     for coin in scores:
-        ti = get_technical_indicators(coin)
+        ti = ti_data.get(coin, {"rsi": 50.0, "macd": 0.0, "signal": 0.0})
         rsi = ti["rsi"]
         macd = ti["macd"]
         signal = ti["signal"]
         
-        # RSI Modifier
         if rsi < 30:
-            scores[coin] += 2.0  # oversold, good buy
+            scores[coin] += 2.0
         elif rsi > 70:
-            scores[coin] -= 2.0  # overbought, bad buy
+            scores[coin] -= 2.0
             
-        # MACD Modifier
         if macd > signal:
-            scores[coin] += 1.0  # bullish trend
+            scores[coin] += 1.0
         elif macd < signal:
-            scores[coin] -= 1.0  # bearish trend
+            scores[coin] -= 1.0
             
-        if scores[coin] < 1.0:
-            scores[coin] = 1.0
+        scores[coin] = max(1.0, scores[coin])
                     
     return scores
 
 def pick_portfolio(sentiment_impacts=None, stable_count=2, volatile_count=3):
-    scores = load_coin_scores(sentiment_impacts)
     valid_symbols = get_tradeable_symbols(limit=100)
+    if not valid_symbols:
+        return [], {}, set()
+        
+    # Get variances to categorize coins
+    variances = asyncio.run(fetch_all_variances(valid_symbols))
     
-    available_stable = [c for c in CONSERVATIVE if c in valid_symbols]
-    available_volatile = [c for c in MODERATE + AGGRESSIVE if c in valid_symbols]
+    # Sort symbols by variance
+    sorted_symbols = sorted([s for s in valid_symbols if s in variances], key=lambda x: variances[x])
     
-    # Weighted random selection based on unique scores
+    # Categorize: lowest 1/3 stable, highest 2/3 volatile
+    third = max(1, len(sorted_symbols) // 3)
+    available_stable = sorted_symbols[:third]
+    available_volatile = sorted_symbols[third:]
+    
+    universe = available_stable + available_volatile
+    scores = load_coin_scores(universe, sentiment_impacts)
+    
     def unique_weighted_sample(population, k):
         selected = set()
         pop_copy = list(population)
@@ -89,19 +85,26 @@ def pick_portfolio(sentiment_impacts=None, stable_count=2, volatile_count=3):
     portfolio = stable_picks + volatile_picks
     prices = get_current_prices(portfolio)
     
-    return portfolio, prices
+    return portfolio, prices, set(stable_picks), scores
 
 def evaluate_performance():
-    from history import get_unevaluated_records, load_history, save_history
     unevaluated = get_unevaluated_records()
     if not unevaluated:
         return []
         
+    # Gather all unique coins to fetch prices once
+    all_coins = set()
+    for record in unevaluated:
+        all_coins.update(record["portfolio"])
+        
+    current_prices = get_current_prices(list(all_coins))
+    
+    history = load_history()
     results = []
+    
     for record in unevaluated:
         portfolio = record["portfolio"]
         old_prices = record["entry_prices"]
-        current_prices = get_current_prices(portfolio)
         
         performance = {}
         for coin in portfolio:
@@ -112,17 +115,17 @@ def evaluate_performance():
             else:
                 performance[coin] = 0.0
                 
-        # save performance back to record
-        history = load_history()
+        # update the loaded history in memory
         for r in history:
             if r.get("timestamp") == record["timestamp"]:
                 r["performance"] = performance
                 r["evaluated"] = True
-        save_history(history)
-        
+                break
+                
         results.append({
             "timestamp": record["timestamp"],
             "performance": performance
         })
         
+    save_history(history)
     return results
