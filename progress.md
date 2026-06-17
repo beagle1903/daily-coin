@@ -13,6 +13,11 @@
 - Added `--stable` and `--volatile` command-line options in `main.py` to allow customized portfolio sizes (defaults to 2 stable and 3 volatile).
 
 - Expanded the `KEYWORD_MAP` in `news.py` to properly cover all altcoins defined in `logic.py`.
+- Refactored `main.py` Typer app to support multiple commands.
+- Implemented dummy `calculate-aid` command (per tasks.json, feat-1) to calculate financial aid from a student profile.
+- Implemented RSI and MACD technical indicators in `binance_client.py` and integrated them into `logic.py`'s scoring heuristic.
+- Fixed `test_load_coin_scores` unit test to mock `get_technical_indicators`, preventing real Binance API calls and resolving test failure.
+- Created unit tests for `calculate_rsi` and `calculate_macd` math in `tests/test_binance_client.py`.
 
 ## Next Steps
-- Implement any further user requests for more advanced technical indicators (e.g., RSI, MACD).
+- Implement actual financial aid eligibility logic in `calculate_aid` instead of the dummy placeholder.

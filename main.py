@@ -7,8 +7,10 @@ from history import add_portfolio_record
 from news import get_latest_news, analyze_news_impact
 
 console = Console()
+app = typer.Typer()
 
-def main(
+@app.command(name="run")
+def run_portfolio(
     stable: int = typer.Option(3, help="Number of stable coins to pick"),
     volatile: int = typer.Option(6, help="Number of volatile coins to pick")
 ):
@@ -104,5 +106,25 @@ def main(
     console.print(p_table)
     console.print("\n[bold green]Done! Run again tomorrow to evaluate these picks and get a new portfolio.[/bold green]")
 
+@app.command()
+def calculate_aid(profile: str = typer.Argument(..., help="Path to student profile JSON")):
+    """
+    Dummy command to calculate financial aid based on a student profile JSON.
+    """
+    import json
+    import os
+    if not os.path.exists(profile):
+        console.print(f"[bold red]Profile file not found: {profile}[/bold red]")
+        return
+        
+    try:
+        with open(profile, "r") as f:
+            data = json.load(f)
+        console.print(f"[bold green]Calculating aid for student profile...[/bold green]")
+        console.print(data)
+        console.print("[bold yellow]Dummy aid calculation: $10,000[/bold yellow]")
+    except Exception as e:
+        console.print(f"[bold red]Error reading profile: {e}[/bold red]")
+
 if __name__ == "__main__":
-    typer.run(main)
+    app()

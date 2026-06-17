@@ -18,8 +18,13 @@ def test_load_coin_scores(monkeypatch):
             }
         }]
         
+    def mock_get_technical_indicators(symbol):
+        return {"rsi": 50.0, "macd": 0.0, "signal": 0.0}
+        
     import logic
+    import binance_client
     monkeypatch.setattr(logic, "load_history", mock_load_history)
+    monkeypatch.setattr(binance_client, "get_technical_indicators", mock_get_technical_indicators)
     
     scores = load_coin_scores()
     assert scores["BTCUSDT"] == 15.0  # 10.0 + 5.0

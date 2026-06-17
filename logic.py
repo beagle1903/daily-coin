@@ -40,6 +40,29 @@ def load_coin_scores(sentiment_impacts=None):
                 if scores[coin] < 1.0:
                     scores[coin] = 1.0
                     
+    # Apply Technical Indicator modifiers
+    from binance_client import get_technical_indicators
+    for coin in scores:
+        ti = get_technical_indicators(coin)
+        rsi = ti["rsi"]
+        macd = ti["macd"]
+        signal = ti["signal"]
+        
+        # RSI Modifier
+        if rsi < 30:
+            scores[coin] += 2.0  # oversold, good buy
+        elif rsi > 70:
+            scores[coin] -= 2.0  # overbought, bad buy
+            
+        # MACD Modifier
+        if macd > signal:
+            scores[coin] += 1.0  # bullish trend
+        elif macd < signal:
+            scores[coin] -= 1.0  # bearish trend
+            
+        if scores[coin] < 1.0:
+            scores[coin] = 1.0
+                    
     return scores
 
 def pick_portfolio(sentiment_impacts=None, stable_count=2, volatile_count=3):

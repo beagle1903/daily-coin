@@ -2,11 +2,11 @@
   {
     "id": "setup-1",
     "task": "Initialize the CLI framework (e.g. Typer/Click) and basic command structure in main.py",
-    "status": "incomplete"
+    "status": "complete"
   },
   {
     "id": "feat-1",
     "task": "Create a dummy calculate-aid command that accepts a student profile JSON",
-    "status": "incomplete"
+    "status": "complete"
   }
 ]
