@@ -14,3 +14,8 @@ You are an AI coding agent assigned to build and maintain the `daily-coin` CLI.
 - When finishing a session, update `progress.md` with handoff notes.
 - Do not write implementation details in this file. Keep it as a short map/router.
 - Always check for dead code and ensure documentation (like `progress.md`) is updated after making code changes.
+
+**Quick Command Reference:**
+- **Run the CLI Application:** `.\venv\Scripts\python.exe main.py run` (or `python main.py run` inside activated venv)
+- **Run tests:** `.\venv\Scripts\python.exe -m pytest` (do NOT run raw `pytest` outside python wrapper, or import path errors will occur)
+

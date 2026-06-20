@@ -26,6 +26,10 @@
 - Re-wrote the test suite to strictly use pytest `tmp_path` to avoid unsafe OS operations and patched API requests.
 - Verified application execution and generated today's recommended portfolio.
 - Added a new `history` subcommand to the Typer app to display performance of all past evaluated portfolios.
+- Successfully ran the Typer CLI `run` command to evaluate the previous portfolio, fetch RSS news feeds, analyze news sentiment, and print today's recommended portfolio.
+- Updated `AGENTS.md` and `docs/architecture.md` with quick command references and developer execution guides so future agents can run and test the app immediately without reading multiple documents.
+
+
 
 ## Next Steps
 - Continue adding more rigorous tests and error handling.
