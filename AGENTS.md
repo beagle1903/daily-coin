@@ -13,3 +13,4 @@ You are an AI coding agent assigned to build and maintain the `daily-coin` CLI.
 - DO NOT overwrite or delete items in `tasks.json`. Only change status from `incomplete` to `complete`.
 - When finishing a session, update `progress.md` with handoff notes.
 - Do not write implementation details in this file. Keep it as a short map/router.
+- Always check for dead code and ensure documentation (like `progress.md`) is updated after making code changes.

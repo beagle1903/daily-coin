@@ -24,6 +24,8 @@
 - Cleaned up inefficient memory I/O in `history.py` to prevent redundant reads and writes.
 - Fixed a Unicode printing bug on Windows for the Rich console by injecting `chcp 65001`.
 - Re-wrote the test suite to strictly use pytest `tmp_path` to avoid unsafe OS operations and patched API requests.
+- Verified application execution and generated today's recommended portfolio.
+- Added a new `history` subcommand to the Typer app to display performance of all past evaluated portfolios.
 
 ## Next Steps
 - Continue adding more rigorous tests and error handling.

@@ -11,8 +11,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from datetime import datetime
 from logic import pick_portfolio, evaluate_performance
-from history import add_portfolio_record
+from history import add_portfolio_record, load_history
 from news import get_latest_news, analyze_news_impact
 
 console = Console()
@@ -110,6 +111,31 @@ def run_portfolio(
         
     console.print(p_table)
     console.print("\n[bold green]Done! Run again tomorrow to evaluate these picks and get a new portfolio.[/bold green]")
+
+@app.command(name="history")
+def show_history():
+    """
+    Shows the performance of all past evaluated portfolios.
+    """
+    history = load_history()
+    evaluated = [r for r in history if r.get("evaluated") and "performance" in r]
+    
+    if not evaluated:
+        console.print("No evaluated past portfolios found.")
+        return
+        
+    for record in evaluated:
+        dt = datetime.fromtimestamp(record["timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
+        table = Table(title=f"Portfolio from {dt}")
+        table.add_column("Coin", style="cyan")
+        table.add_column("24h Change", justify="right")
+        
+        for coin, p_change in record["performance"].items():
+            color = "green" if p_change > 0 else "red"
+            pct = f"{p_change * 100:.2f}%"
+            table.add_row(coin.replace("USDT", ""), f"[{color}]{pct}[/{color}]")
+        console.print(table)
+        console.print("")
 
 if __name__ == "__main__":
     app()
