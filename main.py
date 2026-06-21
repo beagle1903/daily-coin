@@ -25,9 +25,9 @@ def run_portfolio(
     volatile: int = typer.Option(6, min=1, help="Number of volatile coins to pick")
 ):
     """
-    Evaluates yesterday's portfolio (if any) and generates a new portfolio of coins.
+    Evaluates the previous portfolio (if any) and generates a new portfolio of coins.
     """
-    console.print("[bold blue]Starting Daily Crypto Portfolio...[/bold blue]")
+    console.print("[bold blue]Starting Crypto Portfolio Generator...[/bold blue]")
     
     # 1. Evaluate past portfolios
     console.print("Checking for previous portfolios to evaluate...")
@@ -38,7 +38,7 @@ def run_portfolio(
         for res in results:
             table = Table(title="Past Portfolio Performance")
             table.add_column("Coin", style="cyan")
-            table.add_column("24h Change", justify="right")
+            table.add_column("Change", justify="right")
             
             for coin, p_change in res["performance"].items():
                 color = "green" if p_change > 0 else "red"
@@ -81,7 +81,7 @@ def run_portfolio(
     else:
         console.print("No news available right now.")
         
-    console.print("\n[bold yellow]Generating today's portfolio...[/bold yellow]")
+    console.print("\n[bold yellow]Generating new portfolio...[/bold yellow]")
     
     try:
         portfolio, prices, stable_set, scores = pick_portfolio(impacts, stable_count=stable, volatile_count=volatile)
@@ -93,11 +93,11 @@ def run_portfolio(
         console.print("[bold red]Could not fetch valid symbols from Binance.[/bold red]")
         return
         
-    # Save today's picks
+    # Save picks
     add_portfolio_record(portfolio, prices)
     
     # Print new portfolio
-    p_table = Table(title="Today's Recommended Portfolio")
+    p_table = Table(title="Recommended Portfolio")
     p_table.add_column("Coin", style="magenta")
     p_table.add_column("Type", style="cyan")
     p_table.add_column("Entry Price", justify="right")
@@ -110,7 +110,7 @@ def run_portfolio(
         p_table.add_row(coin.replace("USDT", ""), c_type, price_str, score_str)
         
     console.print(p_table)
-    console.print("\n[bold green]Done! Run again tomorrow to evaluate these picks and get a new portfolio.[/bold green]")
+    console.print("\n[bold green]Done! Run again later to evaluate these picks and get a new portfolio.[/bold green]")
 
 @app.command(name="history")
 def show_history():
@@ -128,7 +128,7 @@ def show_history():
         dt = datetime.fromtimestamp(record["timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
         table = Table(title=f"Portfolio from {dt}")
         table.add_column("Coin", style="cyan")
-        table.add_column("24h Change", justify="right")
+        table.add_column("Change", justify="right")
         
         for coin, p_change in record["performance"].items():
             color = "green" if p_change > 0 else "red"

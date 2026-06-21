@@ -75,7 +75,7 @@ async def fetch_with_retry(async_client, symbol, days):
     retries = 3
     for i in range(retries):
         try:
-            return await async_client.get_historical_klines(symbol, AsyncClient.KLINE_INTERVAL_1DAY, f"{days} days ago UTC")
+            return await async_client.get_historical_klines(symbol, AsyncClient.KLINE_INTERVAL_4HOUR, f"{days} days ago UTC")
         except BinanceAPIException as e:
             if e.status_code == 429 and i < retries - 1:
                 await asyncio.sleep(2 ** i)

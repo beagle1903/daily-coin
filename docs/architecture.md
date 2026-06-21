@@ -16,7 +16,7 @@
 
 ## Design Patterns
 - **Separation of Concerns:** CLI routing (in `main.py`) is completely separated from selection logic (`logic.py`) and data fetching (`binance_client.py`, `news.py`).
-- **Heuristic Feedback Loop:** The app "learns" by keeping a rotating 30-day memory of its past picks, applying percentage gain/loss adjustments to the baseline scores.
+- **Heuristic Feedback Loop:** The app "learns" by keeping a rotating 7-day memory of its past picks, applying percentage gain/loss adjustments to the baseline scores.
 
 ## Development & Execution Commands
 - **Activate Virtual Environment (Windows):** `venv\Scripts\activate`

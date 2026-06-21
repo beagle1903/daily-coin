@@ -3,7 +3,7 @@ import os
 import time
 
 HISTORY_FILE = "history.json"
-TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
+TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 
 def load_history():
     if not os.path.exists(HISTORY_FILE):

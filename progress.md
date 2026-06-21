@@ -28,9 +28,10 @@
 - Added a new `history` subcommand to the Typer app to display performance of all past evaluated portfolios.
 - Successfully ran the Typer CLI `run` command to evaluate the previous portfolio, fetch RSS news feeds, analyze news sentiment, and print today's recommended portfolio.
 - Updated `AGENTS.md` and `docs/architecture.md` with quick command references and developer execution guides so future agents can run and test the app immediately without reading multiple documents.
-
-
+- Refactored architecture from a daily 24-hour evaluation interval to a shorter 4-hour kline interval (`AsyncClient.KLINE_INTERVAL_4HOUR`), allowing for continuous intra-day portfolio generation and evaluation.
+- Reduced `history.json` TTL from 30 days to 7 days to prevent bloat and align with the new faster cycle.
+- Updated CLI text strings to remove "daily" constraints (e.g. "yesterday", "24h", "tomorrow").
 
 ## Next Steps
-- Continue adding more rigorous tests and error handling.
-- Review and refine the UI display as needed.
+- Continue refining the heuristic parameters since 4-hour candles have less variance than 1-day candles.
+- Consider implementing a live `watch` command dashboard for users who want continuous updates instead of manual `run` cycles.
