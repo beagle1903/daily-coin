@@ -1,32 +1,33 @@
-# Business Logic Review: Financial Aid CLI
+# Business Logic Review
 
 ## Overview
-I was tasked with deeply reviewing the codebase and recent changes to verify the correctness of the financial aid rules, user flows, and domain logic. This review cross-referenced the current implementation against the domain knowledge provided in the project documentation.
+A comprehensive review of the `daily-coin` business logic has been conducted to verify the alignment with domain rules, portfolio generation rules, and user workflows as outlined in `docs/context.md` and the recent changes in `progress.md`.
 
-## Findings
+## Positive Findings
+1. **Portfolio Pick Distribution**: The requirement for a 9-coin portfolio (3 stable, 6 volatile) is properly implemented via defaults in `main.py` (`stable=3, volatile=6`). The relative math for volatility splitting (lowest 1/3 variance as stable, highest 2/3 as volatile) in `logic.py` effectively handles market-wide volatility shifts without hardcoded lists.
+2. **Heuristic Loop**: The heuristic feedback loop successfully reads from `history.json` and adjusts scores by applying a multiplier (`p_change * 100`). The floor limit of `1.0` in `scores[coin] = max(1.0, scores[coin] + adjustment)` ensures `random.choices` never crashes from negative or zero weights.
+3. **News Sentiment Impact**: Correctly applies sentiment adjustments independently to the current run without persisting them permanently to the base scores, avoiding double-counting effects.
+4. **Kline Math Limits**: Refactoring to 4-hour intervals while keeping 30-day (180 candles) and 60-day (360 candles) lookbacks fits safely within the Binance API's 1000-candle per-request limit. 
 
-### 1. Missing Domain Rules & Context Discrepancy
-According to `AGENTS.md`, the primary context for the financial aid rules and user flows should be derived from `docs/context.md`. However, `docs/context.md` currently defines a **"Daily Crypto Portfolio CLI"** and contains no information regarding financial aid logic, eligibility criteria, student profiles, or scoring metrics. Without these explicit rules, no business logic validation can be accurately performed. 
+## Edge Cases and Potential Bugs
+1. **Concurrency Burst Rate Limiting (Binance API Edge Case)**
+   In `logic.py`, the `fetch_all_variances` and `fetch_all_technical_indicators` functions use `asyncio.gather(*tasks)` to fetch data for up to 100 valid symbols simultaneously. This results in an immediate burst of 100 concurrent requests to the Binance API. While `fetch_with_retry` offers an exponential backoff for HTTP 429s, an `asyncio.Semaphore` (e.g., limiting to 10-15 concurrent requests) should be implemented to prevent IP bans or dropped connections before the backoff even triggers.
 
-### 2. Implementation State of `calculate_aid`
-The codebase (`daily-coin`) is largely built for querying and scoring cryptocurrency data from Binance. The only trace of the "financial aid" domain is an isolated `calculate-aid` Typer command in `main.py`.
+2. **Delisted / Zero Price Coin Evaluation (Financial Logic Edge Case)**
+   In `evaluate_performance` (`logic.py`), the performance change is calculated as:
+   ```python
+   if old_p > 0 and curr_p > 0:
+       performance[coin] = (curr_p - old_p) / old_p
+   else:
+       performance[coin] = 0.0
+   ```
+   If a coin is delisted from Binance, or the API fails to fetch its price, `curr_p` evaluates to 0. The current logic treats this as `0.0` (0% change), meaning the coin escapes a penalty. A delisted or zeroed coin should technically represent a `-1.0` (-100%) loss and heavily penalize the heuristic score. Note: If `old_p == 0` (due to an API error during the initial pick), defaulting to `0.0` is correct to avoid division by zero.
 
-**Current User Flow:**
-- The user runs the CLI passing a file path: `calculate-aid <path_to_json>`.
-- The application performs a basic file existence check.
-- It parses the JSON file using `json.load`.
-- It echoes the parsed JSON to the terminal.
-- **Domain Logic Output:** It bypasses any actual logic or rule processing and statically outputs a dummy value: `Dummy aid calculation: $10,000`.
+3. **Zero Entry Price in Portfolio (API Fault Edge Case)**
+   In `pick_portfolio`, `prices = get_current_prices(portfolio)` is used to map current prices. If the API drops a ticker, `prices.get(coin, 0)` allows an entry price of `$0.0000` into the portfolio. These coins will break the `old_p > 0` check in the *next* evaluation. The system should discard and replace picks if a valid non-zero entry price cannot be obtained.
 
-**Critique:**
-- **Correctness:** The financial aid rules are completely unimplemented. The command acts only as a scaffold.
-- **Validation:** There is no schema validation for the ingested JSON. Any valid JSON file is accepted, regardless of whether it actually constitutes a valid "student profile."
+4. **Redundant Run Weighting (Workflow Edge Case)**
+   Because `evaluate_performance` iterates through all unevaluated past records and applies cumulative adjustments, running the CLI frequently (e.g., every 15 minutes) will heavily stack small time-delta performance adjustments. Since the team recently shifted to a 4-hour intra-day workflow, it is structurally safe, but users who spam the `run` command will see significantly magnified heuristic score weights compared to users who run it once daily.
 
-### 3. Separation of Concerns
-The business logic that powers the legacy portion of the app (cryptocurrency portfolio selection) is correctly decoupled into `logic.py`, `history.py`, and `news.py`. If financial aid logic is to be properly integrated, a similar separation is needed (e.g., `aid_calculator.py`). Currently, the entirety of the `calculate-aid` execution context is contained within the `main.py` routing layer.
-
-## Actionable Recommendations
-1. **Define the Domain Context:** Update `docs/context.md` (or create a dedicated `docs/financial-aid-rules.md`) to explicitly document the financial aid formulas, student profile schema, and eligibility criteria.
-2. **Implement Business Logic:** Replace the dummy `$10,000` return value in `main.py` with an actual rules engine.
-3. **Data Validation:** Implement schema validation (e.g., using `pydantic`) for the incoming student profile JSON to ensure all required fields are present before calculating aid.
-4. **Project Scope Realignment:** The project is experiencing an identity split between a "Daily Crypto Portfolio" and a "Financial Aid" tool. If this repository is pivoting entirely to financial aid, the legacy crypto logic, documentation, and dependencies (like `python-binance`) should be officially deprecated and removed to avoid confusion.
+## Conclusion
+The application perfectly adheres to the core mathematical rules defined in the product context. Addressing the missing-price evaluation and concurrency rate limits will robustify the CLI for long-term uninterrupted background execution.

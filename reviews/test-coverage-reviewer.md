@@ -1,80 +1,62 @@
-# Test Coverage & Quality Review Report
+# Test Coverage & Quality Review
 
-**Date:** 2026-06-17
-**Component:** `daily-coin` CLI Project
-**Focus:** Test Coverage, Testing Strategies, Edge Cases, and Test Quality
+## 📊 Overview
+* **Overall Code Coverage:** 45% (251 / 456 lines missing)
+* **Tested:** Pure algorithmic functions (RSI/MACD math), basic history in-memory filtering, CLI argument bounds, basic coin scoring logic.
+* **Untested:** API integrations, async functions, complex aggregations (`pick_portfolio`, `evaluate_performance`), complete application flows (E2E), and data fetching (news RSS, Binance API).
 
-## 1. Overall Test Coverage Summary
+## 🗂️ File-by-File Breakdown & Identified Gaps
 
-Based on a test run using `pytest --cov`, the project's overall coverage stands at **42%** (416 total statements, 242 missed).
+### 1. `binance_client.py` (48% Coverage)
+* **What is tested:** `calculate_rsi` and `calculate_macd` math calculations.
+* **Untested Areas:** 
+  * `get_tradeable_symbols`, `get_current_prices`
+  * Async functionalities: `fetch_with_retry`, `get_30d_variance_async`, `get_technical_indicators_async`, `fetch_all_variances`, `fetch_all_technical_indicators`.
+* **Missing Edge Cases & Fragile Logic:**
+  * Network retries and API rate limit logic (`BinanceAPIException` with `status_code == 429` inside `fetch_with_retry`) are completely untested.
+  * Timeout handling and network failures returning empty lists `[]` or empty dicts `{}`.
+  * Empty `closes` logic inside `get_technical_indicators_async`.
 
-- **`tests/test_binance_client.py`**: 100% line coverage of the test file, but tests only functional parts of `binance_client.py`, leaving the target file at **57%** covered.
-- **`tests/test_history.py`**: 100% line coverage of the test file, leaving `history.py` at **70%** covered.
-- **`tests/test_logic.py`**: 100% line coverage of the test file, leaving `logic.py` at **39%** covered.
-- **`main.py`**: **0%** coverage.
-- **`news.py`**: **0%** coverage.
+### 2. `news.py` (20% Coverage)
+* **What is tested:** None. The file has 0 dedicated test cases. Only module imports are hit.
+* **Untested Areas:**
+  * `get_latest_news`: The feedparser loop.
+  * `analyze_news_impact`: Sentiment scoring via `vaderSentiment`.
+* **Missing Edge Cases & Fragile Logic:**
+  * Exception handling inside `get_latest_news` (e.g., malformed RSS feeds, network timeout).
+  * The graceful degradation fallback if `vaderSentiment` is not installed (`GLOBAL_ANALYZER = None`).
+  * Scenarios where an article has an empty title or no timestamp.
 
----
+### 3. `logic.py` (32% Coverage)
+* **What is tested:** `load_coin_scores` has basic mock coverage.
+* **Untested Areas:**
+  * `pick_portfolio`: Categorizing coins into stable vs volatile, applying weighted sample selections.
+  * `evaluate_performance`: Fetching old prices, calculating change ratios, updating in-memory history records.
+* **Missing Edge Cases & Fragile Logic:**
+  * `evaluate_performance` lacks tests for a missing/delisted coin (where `old_prices.get(coin)` or `curr_p` is 0), which correctly avoids a zero-division error but remains untested.
+  * Test randomness in `unique_weighted_sample` inside `pick_portfolio` is untested (could be tested by seeding random or checking output types/sizes).
 
-## 2. File-by-File Analysis & Missing Coverage
+### 4. `main.py` (20% Coverage)
+* **What is tested:** `test_main.py` checks simple bounds constraints on CLI options (`--stable < 1`, `--volatile < 1`).
+* **Untested Areas:**
+  * The main CLI execution logic: `run_portfolio` and `show_history`.
+  * E2E flow combining News, Binance Data, Logic evaluation, and saving to history.
+* **Missing Edge Cases & Fragile Logic:**
+  * Application behavior when `pick_portfolio` throws an exception.
+  * What the CLI displays when `evaluate_performance` or `get_latest_news` returns empty arrays.
+  * Testing output generation and rich Table formatting (integration testing with mock CLI runner).
 
-### `main.py` (0% Covered)
-- **Missing**: The entire CLI application logic (`run` and `calculate_aid` commands).
-- **Recommendation**: Utilize Typer's `CliRunner` to test CLI entry points. Mock out side effects such as console printing and history writing to ensure the logic flows correctly without real I/O.
+### 5. `history.py` (70% Coverage)
+* **What is tested:** `clean_old_history_in_memory`, generic save/load flows.
+* **Untested Areas:**
+  * `add_portfolio_record` and `get_unevaluated_records` functions.
+  * `json.JSONDecodeError` exception block in `load_history`.
+* **Missing Edge Cases & Fragile Logic:**
+  * Corrupted `history.json` file parsing correctly returning `[]`.
+  * Concurrent file write attempts (could be an issue since it reads, cleans, and dumps `history.json` linearly).
 
-### `news.py` (0% Covered)
-- **Missing**: RSS parsing (`get_latest_news`) and sentiment analysis (`analyze_news_impact`).
-- **Recommendation**: Mock `feedparser.parse` to return deterministic sample RSS feeds. Test the sentiment logic using sample headlines to verify that the VADER integration works, including its fallback behavior if the dependency is missing.
-- **Edge Cases Missed**: Network timeouts, missing or malformed RSS elements, and headlines without recognized keywords.
-
-### `logic.py` (39% Covered)
-- **Tested**: `get_coin_universe` and a basic sunny-day scenario for `load_coin_scores`.
-- **Missing**: `pick_portfolio`, `evaluate_performance`, and various conditional modifiers in `load_coin_scores` (such as handling `sentiment_impacts`, RSI thresholds, and MACD comparisons).
-- **Edge Cases Missed**:
-  - Processing history when performance data is empty or structurally malformed.
-  - Scenario where `stable_count` or `volatile_count` requested exceeds the available valid symbols.
-  - Verification that the minimum score clamping logic (`score < 1.0`) actually engages correctly.
-
-### `binance_client.py` (57% Covered)
-- **Tested**: Pure mathematical calculations (`calculate_rsi`, `calculate_macd`).
-- **Missing**: All direct Binance API interactions (`get_tradeable_symbols`, `get_current_prices`, `get_30d_variance`, `get_klines_closes`).
-- **Edge Cases Missed**:
-  - Handling of API rate limits, connection timeouts, and authentication errors. 
-  - The current code uses a bare `except Exception:` in `get_klines_closes` to return an empty array—this error masking is completely untested.
-
-### `history.py` (70% Covered)
-- **Tested**: `clean_old_history`.
-- **Missing**: `add_portfolio_record`, `get_unevaluated_records`, and error-handling paths inside `load_history`.
-- **Edge Cases Missed**:
-  - Handling `json.JSONDecodeError` if `history.json` becomes corrupted.
-  - Attempting to load when the file is absent.
-
----
-
-## 3. Test Quality and Strategy Observations
-
-1. **Lack of Mocking for External Dependencies**: 
-   The current test suite completely bypasses testing functions that hit the network (Binance API or RSS feeds). A comprehensive mocking strategy (using `unittest.mock` or `pytest-mock`) is critical. Currently, `test_logic.py` uses `monkeypatch` adequately for internal components, but this practice should be extended to external API clients.
-
-2. **Dangerous File I/O in Tests**: 
-   `test_history.py` writes to and deletes a physical `history.json` in the current working directory, relying on a setup/teardown fixture.
-   - *Critique*: If the test crashes mid-execution, it leaves a dirty state, and it prevents reliable parallel test execution. It might also accidentally overwrite actual user data during local test runs.
-   - *Improvement*: Refactor tests to utilize pytest's built-in `tmp_path` fixture to isolate file operations.
-
-3. **Bare Exceptions Masking Failures**: 
-   Files like `binance_client.py` and `news.py` use broad `except Exception:` blocks.
-   - *Critique*: Bare exceptions are an anti-pattern as they swallow critical errors (including `KeyboardInterrupt`) and make debugging very difficult.
-   - *Improvement*: Refactor code to catch specific network or parsing exceptions. Tests should then explicitly trigger these exceptions to guarantee the fallback logic functions as intended.
-
-4. **Absence of Integration Testing**: 
-   Currently, only isolated unit tests exist for pure functions. There are no tests to simulate an end-to-end portfolio generation pipeline. Establishing tests that verify data hand-offs (e.g., `news.py` -> `logic.py` -> `binance_client.py`) will significantly improve confidence in the system.
-
----
-
-## 4. Prioritized Action Plan for Improvements
-
-1. **Implement CLI Tests**: Introduce tests for `main.py` using `typer.testing.CliRunner`.
-2. **Mock Network Clients**: Add `pytest-mock` or `responses` to properly simulate Binance Client API responses and RSS feed data, ensuring 100% coverage of external-facing functions.
-3. **Refactor Error Handling**: Replace bare `except Exception:` with explicit exception classes, and add tests to verify the resilience of these specific failure paths.
-4. **Fix Test Isolation**: Update `test_history.py` to use `tmp_path` instead of relying on a shared `history.json` file.
-5. **Boost Branch Coverage**: Write targeted unit tests for untested conditional branches in `logic.py` (specifically RSI, MACD, and sentiment score modifications).
+## 🛠️ Actionable Recommendations
+1. **Mock the Binance API:** Add `pytest-asyncio` and `aioresponses` or standard `unittest.mock` to mock Binance responses. Cover `fetch_with_retry` comprehensively, simulating `429` rate limits.
+2. **Mock RSS Feeds:** Provide local static XML strings to mock `feedparser.parse` to write robust tests for `news.py`.
+3. **E2E Testing for the CLI:** Use Typer's `CliRunner` (which is already imported) to run the `run` command end-to-end, mocking only the lowest level API/RSS fetchers. 
+4. **Fix the Missing History File Tests:** Write a test that provides a malformed json string to trigger `json.JSONDecodeError` and verify it degrades gracefully.

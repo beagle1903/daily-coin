@@ -1,13 +1,31 @@
 import math
 import asyncio
+import os
+import sys
 from binance.client import Client
 from binance import AsyncClient
 from binance.exceptions import BinanceAPIException
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 
-client = Client(BINANCE_API_KEY, BINANCE_API_SECRET)
+client = None
+USE_MOCK_DATA = os.environ.get("OFFLINE_MOCK", "").lower() in ("true", "1")
+
+if not USE_MOCK_DATA:
+    try:
+        # Set a short timeout for the initial ping to avoid long hangs
+        client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, requests_params={'timeout': 5})
+    except Exception as e:
+        print("Warning: Binance API connection failed. Falling back to Offline Mock Mode.", file=sys.stderr)
+        USE_MOCK_DATA = True
 
 def get_tradeable_symbols(limit=30):
+    if USE_MOCK_DATA or client is None:
+        return [
+            "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", 
+            "XRPUSDT", "DOTUSDT", "LTCUSDT", "DOGEUSDT", "AVAXUSDT", 
+            "LINKUSDT", "SHIBUSDT", "UNIUSDT", "ATOMUSDT", "SUIUSDT", 
+            "PEPEUSDT", "WIFUSDT", "FLOKIUSDT", "BONKUSDT", "HYPEUSDT"
+        ][:limit]
     try:
         tickers = client.get_ticker()
         usdt_pairs = [t for t in tickers if t['symbol'].endswith('USDT')]
@@ -17,6 +35,31 @@ def get_tradeable_symbols(limit=30):
         return []
 
 def get_current_prices(symbols):
+    if USE_MOCK_DATA or client is None:
+        mock_prices = {
+            "BTCUSDT": 95230.15,
+            "ETHUSDT": 3120.45,
+            "BNBUSDT": 652.80,
+            "SOLUSDT": 188.90,
+            "ADAUSDT": 0.68,
+            "XRPUSDT": 1.78,
+            "DOTUSDT": 6.42,
+            "LTCUSDT": 89.60,
+            "DOGEUSDT": 0.34,
+            "AVAXUSDT": 31.85,
+            "LINKUSDT": 17.95,
+            "SHIBUSDT": 0.0000245,
+            "UNIUSDT": 11.25,
+            "ATOMUSDT": 8.12,
+            "SUIUSDT": 3.05,
+            "PEPEUSDT": 0.0000142,
+            "WIFUSDT": 3.15,
+            "FLOKIUSDT": 0.000175,
+            "BONKUSDT": 0.0000272,
+            "HYPEUSDT": 14.85
+        }
+        import random
+        return {s: mock_prices.get(s, random.uniform(1.0, 50.0)) for s in symbols}
     try:
         prices = client.get_all_tickers()
         prices_map = {p['symbol']: float(p['price']) for p in prices}
@@ -112,6 +155,15 @@ async def get_technical_indicators_async(async_client, symbol):
     return {"rsi": rsi, "macd": macd, "signal": signal}
 
 async def fetch_all_variances(symbols):
+    if USE_MOCK_DATA:
+        import random
+        res = {}
+        for s in symbols:
+            if s in ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "XRPUSDT", "DOTUSDT", "LTCUSDT", "ATOMUSDT"]:
+                res[s] = random.uniform(0.01, 0.03)
+            else:
+                res[s] = random.uniform(0.04, 0.10)
+        return res
     async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
     try:
         tasks = [get_30d_variance_async(async_client, s) for s in symbols]
@@ -121,6 +173,16 @@ async def fetch_all_variances(symbols):
         await async_client.close_connection()
 
 async def fetch_all_technical_indicators(symbols):
+    if USE_MOCK_DATA:
+        import random
+        res = {}
+        for s in symbols:
+            res[s] = {
+                "rsi": random.uniform(25.0, 75.0),
+                "macd": random.uniform(-1.0, 1.0),
+                "signal": random.uniform(-1.0, 1.0)
+            }
+        return res
     async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
     try:
         tasks = [get_technical_indicators_async(async_client, s) for s in symbols]

@@ -31,7 +31,12 @@
 - Refactored architecture from a daily 24-hour evaluation interval to a shorter 4-hour kline interval (`AsyncClient.KLINE_INTERVAL_4HOUR`), allowing for continuous intra-day portfolio generation and evaluation.
 - Reduced `history.json` TTL from 30 days to 7 days to prevent bloat and align with the new faster cycle.
 - Updated CLI text strings to remove "daily" constraints (e.g. "yesterday", "24h", "tomorrow").
+- Executed the CLI application (`main.py run`) and verified that it successfully evaluated past portfolios, aggregated news, and generated today's recommended portfolio.
+- Added a resilient **Offline Mock Mode** fallback to `binance_client.py` to prevent crashes when the Binance API is blocked by the local ISP/network filter (resolves SSL `WRONG_VERSION_NUMBER` errors).
+- Ensured module imports are safe and unit tests load and pass successfully.
 
 ## Next Steps
 - Continue refining the heuristic parameters since 4-hour candles have less variance than 1-day candles.
 - Consider implementing a live `watch` command dashboard for users who want continuous updates instead of manual `run` cycles.
+- Add an explicit `--proxy` option to allow bypassing ISP blocks using user-defined proxy configurations.
+

@@ -1,50 +1,41 @@
 # Parallel Code Review Summary
 
-This document synthesizes the findings from 5 specialized subagents (Security, Architecture, Test Coverage, Performance, and Business Logic) regarding the `daily-coin` codebase. The findings are prioritized into P0 (Critical), P1 (High), and P2 (Medium) issues, with corresponding actionable agent prompts for remediation.
+**Date:** 2026-06-23
+**Synthesis of Reviews:** Architecture, Performance, Business Logic, and Test Coverage.
+*(Note: The Security review subagent was blocked from executing due to AI safety policies regarding automated vulnerability scanning. Manual review is recommended for security aspects.)*
 
----
+## Priority 0 (Critical / Blockers / High Impact)
 
-## P0: Critical Issues
+### 1. Network Bottlenecks & API Rate Limiting
+- **Issue:** Redundant API calls (fetching 30-day and 60-day klines separately) result in 200 network requests for 100 symbols. Unbounded `asyncio.gather` calls cause immediate bursts, risking Binance API IP bans (HTTP 429).
+- **Suggested Fix (Agent Prompt):**
+  > "Refactor `binance_client.py` to use a single shared `AsyncClient` session. Consolidate kline fetching to request 60 days of data once per symbol, and compute both 30-day variance and technical indicators from this single dataset. Wrap the async API calls in `fetch_all_variances` and `fetch_all_technical_indicators` with an `asyncio.Semaphore` (limit 10-15) to prevent API burst rate limiting."
 
-### 1. Domain Identity Crisis & Dummy Implementation (Business Logic)
-The codebase suffers from a split identity. The documentation strictly describes a "Crypto Portfolio CLI", but recent development added a `calculate_aid` command for a "Financial Aid CLI". This command is a dummy scaffold that blindly returns a hardcoded `$10,000` and does no validation on the inputted JSON. 
-**Agent Prompt for Fix:** 
-> "Resolve the domain identity of the repository. If pivoting to a Financial Aid tool, update `docs/context.md` to define the rules, implement a real rules engine in a separate module (e.g., `aid_calculator.py`), add JSON schema validation for the student profile, and remove the legacy crypto logic. Otherwise, delete the `calculate_aid` command."
+## Priority 1 (Important / Architecture / Edge Cases)
 
-### 2. Network Bottlenecks & The N+1 Problem (Performance & Architecture)
-Synchronous HTTP requests to the Binance API are executed sequentially inside loops. `load_coin_scores()` fetches klines individually for every coin, causing severe blocking and making the application extremely slow. Furthermore, `evaluate_performance()` unnecessarily calls `get_all_tickers()` multiple times within a loop.
-**Agent Prompt for Fix:** 
-> "Refactor `binance_client.py` and `logic.py` to fetch technical indicators concurrently using `asyncio` or `AsyncClient`. Pull the `get_current_prices()`/`get_all_tickers()` call out of the `evaluate_performance` loop to execute only once and cache the state."
+### 2. Missing Dependency Injection in `logic.py`
+- **Issue:** `logic.py` directly imports and invokes I/O functions from `binance_client.py` and `history.py`, violating its goal of being purely functional and making unit testing difficult.
+- **Suggested Fix (Agent Prompt):**
+  > "Refactor `logic.py` to use Dependency Injection. Modify the scoring and selection functions to accept raw data (prices, variances, technical indicators, history) as arguments instead of fetching them internally. Move the orchestration of data fetching to `main.py`."
 
----
+### 3. Delisted / Zero Price Coin Handling
+- **Issue:** If a coin is delisted from Binance, its current price evaluates to `0`. The performance evaluation incorrectly treats this as `0.0` (0% change) rather than penalizing it. Zero-priced entry coins can also break future evaluations.
+- **Suggested Fix (Agent Prompt):**
+  > "Update `evaluate_performance` in `logic.py` so that if `curr_p == 0` but `old_p > 0`, the performance is recorded as `-1.0` (-100% loss) to heavily penalize the heuristic score. Also, update `pick_portfolio` to discard any symbols where a valid non-zero entry price cannot be fetched."
 
-## P1: High Priority Issues
+### 4. Synchronous RSS Parsing Overhead
+- **Issue:** `news.py` iterates through RSS feeds synchronously, meaning total latency is the sum of all individual feed response times.
+- **Suggested Fix (Agent Prompt):**
+  > "Parallelize the RSS feed fetching in `news.py`'s `get_latest_news()` using `asyncio` and `aiohttp` (or a `ThreadPoolExecutor`) to fetch and parse the XML payloads concurrently."
 
-### 3. Missing External Mocks & Dangerous Test I/O (Test Coverage)
-Overall coverage is only 42%. Core modules like `main.py` and `news.py` have 0% coverage. Tests do not mock external network calls, and `test_history.py` performs unsafe writes directly to the physical `history.json` file in the current working directory.
-**Agent Prompt for Fix:** 
-> "Implement a comprehensive mocking strategy using `pytest-mock` for all network calls (Binance API, RSS feeds). Refactor `test_history.py` to use pytest's `tmp_path` fixture for safe file I/O isolation. Add CLI tests using Typer's `CliRunner`."
+## Priority 2 (Low Impact / Tech Debt / Testing)
 
-### 4. Blueprint Violations in Heuristic Logic (Architecture)
-The architecture dictates that volatility and stability should be determined mathematically via 30-day historical kline variance. Although `get_30d_variance()` exists, `logic.py` ignores it and uses hardcoded arrays (`CONSERVATIVE`, `MODERATE`, `AGGRESSIVE`).
-**Agent Prompt for Fix:** 
-> "Refactor `logic.py` to strictly adhere to the technical blueprint. Remove the hardcoded arrays for coin groups and dynamically categorize coins by consuming `get_30d_variance()` from `binance_client.py`."
+### 5. Inconsistent Client Usage & Overfetching
+- **Issue:** Global synchronous `Client` initialization in `binance_client.py` can cause import-time crashes. Ticker data overfetches the entire exchange instead of just the requested symbols.
+- **Suggested Fix (Agent Prompt):**
+  > "Remove the global synchronous `Client` initialization in `binance_client.py` and standardize on async. Optimize `get_current_prices` by passing a list of symbols to the Binance API endpoint instead of fetching all tickers."
 
-### 5. Input Validation & API Rate Limiting (Security)
-The Typer CLI arguments for `--stable` and `--volatile` lack bounds checking, allowing negative integers that will break downstream logic. Additionally, bare API requests lack rate-limit management.
-**Agent Prompt for Fix:** 
-> "Add numerical bound constraints to the Typer CLI inputs in `main.py`. Implement backoff and retry logic in `binance_client.py` to handle potential HTTP 429 rate limit exceptions securely."
-
----
-
-## P2: Medium Priority Issues
-
-### 6. Suboptimal File I/O & CPU Usage (Performance)
-The `SentimentIntensityAnalyzer` is redundantly re-initialized, causing high disk/CPU overhead from loading lexicons. Additionally, operations in `history.py` and `evaluate_performance` cause $O(N)$ repeated reading and writing of `history.json`.
-**Agent Prompt for Fix:** 
-> "Optimize resource management: instantiate `SentimentIntensityAnalyzer` globally as a singleton. Refactor `history.py` and `evaluate_performance()` to read the JSON file once into memory, perform all operations, and write the file to disk exactly once."
-
-### 7. Code Smells & Bare Exceptions (Architecture & Coverage)
-`logic.py` uses inline imports to avoid circular dependencies, indicating blurred boundaries. Across the application, widespread `except Exception:` blocks mask errors like `KeyboardInterrupt` and network timeouts.
-**Agent Prompt for Fix:** 
-> "Replace all bare `except Exception:` blocks with specific exceptions and ensure tests trigger these paths. Resolve the circular dependencies causing inline imports in `logic.py` by refactoring the module boundaries."
+### 6. Low Test Coverage on Async & E2E Flows
+- **Issue:** The project has 45% coverage, primarily missing tests for async integrations, API retries, and the Typer CLI E2E flow.
+- **Suggested Fix (Agent Prompt):**
+  > "Increase test coverage for async integrations. Mock the Binance API using `pytest-asyncio` and `aioresponses` to test `fetch_with_retry` and rate-limit handling. Add Typer `CliRunner` tests for the `main.py` execution flow."

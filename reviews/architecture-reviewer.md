@@ -1,35 +1,39 @@
-# Architecture Review: Daily-Coin CLI
+# Architecture Review
+
+**Date:** 2026-06-23
+**Role:** Architecture Reviewer
 
 ## Overview
-This document contains an architectural review of the `daily-coin` codebase. The review assesses the project's adherence to its defined technical blueprints, separation of concerns, scalability, and overall code quality.
+This document outlines the architectural findings for the `daily-coin` CLI, assessing separation of concerns, design patterns, scalability, maintainability, and alignment with the core architectural documentation (`docs/architecture.md` and `docs/decisions.md`).
 
-## 1. Adherence to Technical Blueprint
-**Overall Status:** Partial Adherence
+## 1. Alignment with Architecture Documentation & ADRs
+- **CLI Framework:** Successfully leverages `Typer` as outlined in ADR 002. `main.py` is well-structured as an entry point.
+- **Explicit Memory:** Implements explicit JSON-based memory (`history.json`) accurately based on ADR 001. The heuristic loop in `history.py` functions as intended.
+- **News Aggregation & Sentiment:** Follows ADR 003 and 004 by effectively using `feedparser` and `vaderSentiment` without relying on heavy external integrations or APIs.
 
-**Findings:**
-- **Violation of Volatility/Stability Rules:** The primary domain rule in `docs/context.md` explicitly states: *"Volatility vs. Stability: Defined mathematically via 30-day historical klines from Binance. High standard deviation = volatile, low standard deviation = stable."* 
-  However, in `logic.py`, the `CONSERVATIVE`, `MODERATE`, and `AGGRESSIVE` coin groups are hardcoded lists. Furthermore, while the mathematical variance calculation (`get_30d_variance()`) is correctly implemented in `binance_client.py`, it is completely unused (dead code). This is a critical divergence from the product context.
-- **Heuristic Feedback Loop:** Successfully implemented. The application correctly records picks in `history.json` and evaluates past portfolios in `logic.py` (`load_coin_scores` and `evaluate_performance`), appropriately adjusting heuristic scores based on percentage gains/losses.
-- **News Integration:** Aligns perfectly with ADR 003 and 004. It utilizes `feedparser` and `vaderSentiment` successfully to derive sentiment and apply heuristic modifiers dynamically without bloat.
+## 2. Separation of Concerns (SoC)
+- **Strengths:** 
+  - `main.py` is largely decoupled from implementation details, acting merely as a router and UI orchestrator using `rich`.
+  - `news.py` is entirely self-contained and manages only RSS parsing and sentiment scoring.
+- **Areas for Improvement:** 
+  - **Logic Coupling:** `logic.py` is intended to contain "pure functions" (per `docs/architecture.md`), but currently it directly imports and invokes functions from `binance_client.py` and `history.py`. This tightly couples the business logic to network I/O and disk I/O.
+  - **Recommendation:** Implement Dependency Injection (DI). Pass the required data (prices, variances, technical indicators, history) as arguments into the scoring and selection functions in `logic.py`. This would make `logic.py` truly pure and vastly simpler to unit test.
 
-## 2. Separation of Concerns & Modularity
-**Overall Status:** Good
+## 3. Design Patterns & Best Practices
+- **Inconsistent Client Usage:** `binance_client.py` uses a mix of global synchronous clients (`Client`) and dynamically instantiated asynchronous clients (`AsyncClient`). 
+  - The synchronous `client = Client(...)` at the module level means it is instantiated upon import, which can cause issues if environment variables are missing or if the script is imported in an environment where network access is restricted (e.g., during some tests).
+  - **Recommendation:** Standardize on an asynchronous approach for all data fetching, or at least encapsulate client instantiation inside getter functions or a class.
+- **Heuristic Feedback Loop:** The feedback loop is implemented accurately, modifying heuristic scores based on the 7-day performance TTL.
 
-**Findings:**
-- **Presentation vs. Logic:** The presentation layer (`main.py` utilizing `Typer` and `Rich`) is well segregated from business rules (`logic.py`), data fetching (`binance_client.py`), and persistence (`history.py`).
-- **Inline Imports:** `logic.py` contains inline imports (e.g., `from history import get_unevaluated_records, load_history, save_history` inside `evaluate_performance()` and `from binance_client import get_technical_indicators` inside `load_coin_scores()`). While this avoids circular dependencies, it suggests that the responsibility boundaries might be slightly blurred. Refactoring the dependency graph (possibly using a dependency injection approach or moving performance evaluation logic closer to the history module) would result in cleaner architecture.
-- **Orphan Context:** `main.py` contains a `calculate_aid` dummy command. This financial-aid context appears entirely unrelated to the daily crypto portfolio domain and should be evaluated for removal or separation if it stems from a broader monorepo requirement.
+## 4. Scalability & Performance
+- **Strengths:** The use of `asyncio` and `asyncio.gather` in `fetch_all_technical_indicators` and `fetch_all_variances` ensures that pulling klines for ~100 symbols happens concurrently, keeping the CLI extremely fast.
+- **Areas for Improvement:** 
+  - In `binance_client.py`, `AsyncClient.create(...)` is called inside `fetch_all_variances` and `fetch_all_technical_indicators`, creating and closing the connection for each batch. While this works, a single shared async session across the entire run would be marginally more efficient.
+  - The `news.py` KEYWORD_MAP is hardcoded. While performant, this manual mapping won't scale automatically if Binance lists new popular tokens.
 
-## 3. Scalability and Performance
-**Overall Status:** Needs Improvement
+## 5. Maintainability
+- The codebase is currently small enough that maintainability is high.
+- Adding typing (`typing.Dict`, `typing.List`) to function signatures in `logic.py` and `binance_client.py` would improve developer experience, aligning with the choice of Typer which encourages extensive type hinting.
 
-**Findings:**
-- **Synchronous Network Bottlenecks (N+1 Problem):** In `logic.py`'s `load_coin_scores()`, the system iterates over the entire coin universe and calls `get_technical_indicators(coin)`. This function sequentially performs synchronous HTTP requests (`client.get_historical_klines`) for each coin. For a universe of 21 coins, this results in 21 blocking network requests, noticeably degrading the CLI's responsiveness. If the coin universe scales to 100+ coins via `get_tradeable_symbols()`, the delay will be severe.
-- **Recommendation for Asynchrony:** The application should migrate from the synchronous Binance `Client` to the asynchronous `AsyncClient` (provided by `python-binance`) to allow parallel fetching of klines, or utilize bulk endpoints if available. Similarly, RSS feeds in `news.py` are fetched sequentially and would benefit from `asyncio.gather`.
-- **Stateless Score Calculation:** `load_coin_scores()` recalculates all historical heuristic modifiers by traversing `history.json` on every run. While fine for a 30-day TTL, performance may eventually degrade. Caching or saving a running baseline score state would be more scalable than continuous replay.
-
-## 4. Summary of Action Items
-1. **Refactor `logic.py`** to replace hardcoded arrays (`CONSERVATIVE`, etc.) with dynamic filtering using `binance_client.py`'s `get_30d_variance()` to adhere to the mathematical definition of volatility.
-2. **Optimize API Calls** by introducing parallel asynchronous fetching in `binance_client.py` (specifically for klines and technical indicators) to eliminate the N+1 request bottleneck.
-3. **Clean up Inline Imports** in `logic.py` by resolving circular dependencies at the architectural level.
-4. **Remove or Clarify** the unrelated `calculate_aid` command in `main.py`.
+## Conclusion
+The architecture is solidly aligned with the documentation and the ADRs. The primary area of concern is the lack of Dependency Injection in `logic.py`, which violates the goal of it being purely functional logic. Refactoring `logic.py` to accept raw data instead of fetching it internally would elevate the architectural soundness of the system.
