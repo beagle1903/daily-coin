@@ -2,23 +2,32 @@ import math
 import asyncio
 import os
 import sys
+import json
 from binance.client import Client
 from binance import AsyncClient
 from binance.exceptions import BinanceAPIException
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 
-client = None
+_client = None
 USE_MOCK_DATA = os.environ.get("OFFLINE_MOCK", "").lower() in ("true", "1")
 
-if not USE_MOCK_DATA:
+def get_sync_client():
+    global _client, USE_MOCK_DATA
+    if USE_MOCK_DATA:
+        return None
+    if _client is not None:
+        return _client
     try:
         # Set a short timeout for the initial ping to avoid long hangs
-        client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, requests_params={'timeout': 5})
-    except Exception as e:
+        _client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, requests_params={'timeout': 5})
+        return _client
+    except Exception:
         print("Warning: Binance API connection failed. Falling back to Offline Mock Mode.", file=sys.stderr)
         USE_MOCK_DATA = True
+        return None
 
 def get_tradeable_symbols(limit=30):
+    client = get_sync_client()
     if USE_MOCK_DATA or client is None:
         return [
             "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", 
@@ -35,6 +44,7 @@ def get_tradeable_symbols(limit=30):
         return []
 
 def get_current_prices(symbols):
+    client = get_sync_client()
     if USE_MOCK_DATA or client is None:
         mock_prices = {
             "BTCUSDT": 95230.15,
@@ -61,11 +71,19 @@ def get_current_prices(symbols):
         import random
         return {s: mock_prices.get(s, random.uniform(1.0, 50.0)) for s in symbols}
     try:
-        prices = client.get_all_tickers()
-        prices_map = {p['symbol']: float(p['price']) for p in prices}
-        return {s: prices_map[s] for s in symbols if s in prices_map}
-    except Exception:
+        res = client.get_symbol_ticker(symbols=json.dumps(symbols, separators=(',', ':')))
+        if isinstance(res, list):
+            return {item['symbol']: float(item['price']) for item in res}
+        elif isinstance(res, dict):
+            return {res['symbol']: float(res['price'])}
         return {}
+    except Exception:
+        try:
+            prices = client.get_all_tickers()
+            prices_map = {p['symbol']: float(p['price']) for p in prices}
+            return {s: prices_map[s] for s in symbols if s in prices_map}
+        except Exception:
+            return {}
 
 def calculate_rsi(closes, period=14):
     if len(closes) < period + 1:
@@ -128,65 +146,77 @@ async def fetch_with_retry(async_client, symbol, days):
             return []
     return []
 
-async def get_30d_variance_async(async_client, symbol):
-    klines = await fetch_with_retry(async_client, symbol, 30)
-    closes = [float(k[4]) for k in klines]
-    if len(closes) < 2:
-        return 0.0
-    returns = []
-    for i in range(1, len(closes)):
-        prev = closes[i-1]
-        curr = closes[i]
-        if prev > 0:
-            returns.append((curr - prev) / prev)
-    if not returns:
-        return 0.0
-    mean_return = sum(returns) / len(returns)
-    variance = sum((r - mean_return) ** 2 for r in returns) / len(returns)
-    return math.sqrt(variance)
+async def fetch_historical_data_async(async_client, symbol, semaphore):
+    async with semaphore:
+        klines = await fetch_with_retry(async_client, symbol, 60)
+        return symbol, klines
 
-async def get_technical_indicators_async(async_client, symbol):
-    klines = await fetch_with_retry(async_client, symbol, 60)
-    closes = [float(k[4]) for k in klines]
-    if not closes:
-        return {"rsi": 50.0, "macd": 0.0, "signal": 0.0}
-    rsi = calculate_rsi(closes)
-    macd, signal = calculate_macd(closes)
-    return {"rsi": rsi, "macd": macd, "signal": signal}
+def _get_mock_market_data(symbols):
+    import random
+    res = {}
+    for s in symbols:
+        if s in ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "XRPUSDT", "DOTUSDT", "LTCUSDT", "ATOMUSDT"]:
+            var_val = random.uniform(0.01, 0.03)
+        else:
+            var_val = random.uniform(0.04, 0.10)
+        res[s] = {
+            "variance": var_val,
+            "rsi": random.uniform(25.0, 75.0),
+            "macd": random.uniform(-1.0, 1.0),
+            "signal": random.uniform(-1.0, 1.0)
+        }
+    return res
 
-async def fetch_all_variances(symbols):
+async def fetch_all_market_data(symbols):
+    global USE_MOCK_DATA
     if USE_MOCK_DATA:
-        import random
-        res = {}
-        for s in symbols:
-            if s in ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "XRPUSDT", "DOTUSDT", "LTCUSDT", "ATOMUSDT"]:
-                res[s] = random.uniform(0.01, 0.03)
-            else:
-                res[s] = random.uniform(0.04, 0.10)
-        return res
-    async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
+        return _get_mock_market_data(symbols)
     try:
-        tasks = [get_30d_variance_async(async_client, s) for s in symbols]
+        async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
+    except Exception:
+        print("Warning: Binance AsyncClient connection failed. Falling back to Offline Mock Mode.", file=sys.stderr)
+        USE_MOCK_DATA = True
+        return _get_mock_market_data(symbols)
+    try:
+        semaphore = asyncio.Semaphore(15)
+        tasks = [fetch_historical_data_async(async_client, s, semaphore) for s in symbols]
         results = await asyncio.gather(*tasks)
-        return dict(zip(symbols, results))
-    finally:
-        await async_client.close_connection()
-
-async def fetch_all_technical_indicators(symbols):
-    if USE_MOCK_DATA:
-        import random
-        res = {}
-        for s in symbols:
-            res[s] = {
-                "rsi": random.uniform(25.0, 75.0),
-                "macd": random.uniform(-1.0, 1.0),
-                "signal": random.uniform(-1.0, 1.0)
+        
+        data_map = {}
+        for symbol, klines in results:
+            closes = [float(k[4]) for k in klines] if klines else []
+            if not closes:
+                data_map[symbol] = {
+                    "variance": 0.0,
+                    "rsi": 50.0,
+                    "macd": 0.0,
+                    "signal": 0.0
+                }
+                continue
+            
+            # Calculate 30-day variance (using last 180 candles of 4h interval)
+            closes_30d = closes[-180:] if len(closes) >= 180 else closes
+            variance = 0.0
+            if len(closes_30d) >= 2:
+                returns = []
+                for i in range(1, len(closes_30d)):
+                    prev = closes_30d[i-1]
+                    curr = closes_30d[i]
+                    if prev > 0:
+                        returns.append((curr - prev) / prev)
+                if returns:
+                    mean_return = sum(returns) / len(returns)
+                    var_val = sum((r - mean_return) ** 2 for r in returns) / len(returns)
+                    variance = math.sqrt(var_val)
+                    
+            rsi = calculate_rsi(closes)
+            macd, signal = calculate_macd(closes)
+            data_map[symbol] = {
+                "variance": variance,
+                "rsi": rsi,
+                "macd": macd,
+                "signal": signal
             }
-        return res
-    async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
-    try:
-        tasks = [get_technical_indicators_async(async_client, s) for s in symbols]
-        results = await asyncio.gather(*tasks)
-        return dict(zip(symbols, results))
+        return data_map
     finally:
         await async_client.close_connection()

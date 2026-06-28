@@ -1,6 +1,8 @@
 import feedparser
 import time
 import re
+import asyncio
+
 try:
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
     GLOBAL_ANALYZER = SentimentIntensityAnalyzer()
@@ -36,12 +38,16 @@ KEYWORD_MAP = {
     "floki": "FLOKIUSDT"
 }
 
-def get_latest_news(limit=5):
-    articles = []
+async def get_latest_news(limit=5):
+    # Run the blocking feedparser.parse calls concurrently in background threads
+    tasks = [asyncio.to_thread(feedparser.parse, url) for url in RSS_FEEDS]
+    feeds = await asyncio.gather(*tasks, return_exceptions=True)
     
-    for url in RSS_FEEDS:
+    articles = []
+    for feed in feeds:
+        if isinstance(feed, Exception) or feed is None:
+            continue
         try:
-            feed = feedparser.parse(url)
             if getattr(feed, 'bozo', 0) == 1 and not feed.entries:
                 continue
             for entry in feed.entries[:limit]:

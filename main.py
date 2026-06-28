@@ -1,5 +1,7 @@
 import sys
 import os
+import asyncio
+
 if sys.platform == "win32":
     os.system("chcp 65001 >nul")
     try:
@@ -10,30 +12,32 @@ if sys.platform == "win32":
 import typer
 from rich.console import Console
 from rich.table import Table
-
 from datetime import datetime
-from logic import pick_portfolio, evaluate_performance
-from history import add_portfolio_record, load_history
+
+from logic import pick_portfolio, evaluate_performance, load_coin_scores
+from history import add_portfolio_record, load_history, save_history, get_unevaluated_records
 from news import get_latest_news, analyze_news_impact
+from binance_client import get_tradeable_symbols, get_current_prices, fetch_all_market_data
 
 console = Console()
 app = typer.Typer()
 
-@app.command(name="run")
-def run_portfolio(
-    stable: int = typer.Option(3, min=1, help="Number of stable coins to pick"),
-    volatile: int = typer.Option(6, min=1, help="Number of volatile coins to pick")
-):
-    """
-    Evaluates the previous portfolio (if any) and generates a new portfolio of coins.
-    """
-    console.print("[bold blue]Starting Crypto Portfolio Generator...[/bold blue]")
-    
+async def async_run_portfolio(stable_count: int, volatile_count: int):
     # 1. Evaluate past portfolios
     console.print("Checking for previous portfolios to evaluate...")
-    results = evaluate_performance()
+    unevaluated = get_unevaluated_records()
+    history = load_history()
     
-    if results:
+    if unevaluated:
+        # Gather all unique coins to fetch prices once
+        all_coins = set()
+        for record in unevaluated:
+            all_coins.update(record["portfolio"])
+        
+        current_prices = get_current_prices(list(all_coins))
+        updated_history, results = evaluate_performance(unevaluated, current_prices, history)
+        save_history(updated_history)
+        
         console.print(f"Evaluated {len(results)} past portfolio(s).")
         for res in results:
             table = Table(title="Past Portfolio Performance")
@@ -48,8 +52,19 @@ def run_portfolio(
     else:
         console.print("No unevaluated past portfolios found.")
         
-    console.print("\n[bold yellow]Fetching latest crypto news...[/bold yellow]")
-    news_items = get_latest_news(limit=5)
+    console.print("\n[bold yellow]Fetching latest crypto news and market data concurrently...[/bold yellow]")
+    
+    # 2. Get tradeable symbols
+    valid_symbols = get_tradeable_symbols(limit=100)
+    if not valid_symbols:
+        console.print("[bold red]Could not fetch valid symbols from Binance.[/bold red]")
+        return
+        
+    # Run news fetching and market data fetching concurrently
+    news_task = get_latest_news(limit=5)
+    market_data_task = fetch_all_market_data(valid_symbols)
+    
+    news_items, market_data = await asyncio.gather(news_task, market_data_task)
     
     impacts = []
     if news_items:
@@ -77,33 +92,94 @@ def run_portfolio(
                 snippet = imp["headline"][:45] + "..." if len(imp["headline"]) > 45 else imp["headline"]
                 impact_table.add_row(imp["coin"].replace("USDT", ""), snippet, imp["sentiment"], adj_str)
             console.print(impact_table)
-            
     else:
         console.print("No news available right now.")
         
     console.print("\n[bold yellow]Generating new portfolio...[/bold yellow]")
     
-    try:
-        portfolio, prices, stable_set, scores = pick_portfolio(impacts, stable_count=stable, volatile_count=volatile)
-    except Exception as e:
-        console.print(f"[bold red]Error generating portfolio: {e}[/bold red]")
+    # 3. Categorize symbols based on variance
+    sorted_symbols = sorted([s for s in valid_symbols if s in market_data], key=lambda x: market_data[x]["variance"])
+    if not sorted_symbols:
+        console.print("[bold red]No valid market data retrieved from Binance.[/bold red]")
         return
         
-    if not portfolio:
-        console.print("[bold red]Could not fetch valid symbols from Binance.[/bold red]")
-        return
-        
-    # Save picks
-    add_portfolio_record(portfolio, prices)
+    third = max(1, len(sorted_symbols) // 3)
+    available_stable = sorted_symbols[:third]
+    available_volatile = sorted_symbols[third:]
     
-    # Print new portfolio
+    universe = available_stable + available_volatile
+    
+    # Reload history because it might have been updated in evaluation
+    history = load_history()
+    scores = load_coin_scores(universe, history, impacts, market_data)
+    
+    # Call the pure pick_portfolio
+    stable_picks, volatile_picks = pick_portfolio(
+        available_stable, available_volatile, scores, 
+        stable_count=stable_count, volatile_count=volatile_count
+    )
+    
+    # 4. Verify and resolve non-zero entry prices for chosen candidates
+    portfolio = stable_picks + volatile_picks
+    prices = get_current_prices(portfolio)
+    
+    tried_symbols = set(portfolio)
+    
+    final_stable = []
+    for coin in stable_picks:
+        price = prices.get(coin, 0.0)
+        if price > 0:
+            final_stable.append(coin)
+        else:
+            console.print(f"[bold red]Discarded stable coin {coin.replace('USDT', '')} due to invalid price ($0.0). Finding replacement...[/bold red]")
+            
+    remaining_stable = [s for s in available_stable if s not in tried_symbols]
+    while len(final_stable) < stable_count and remaining_stable:
+        remaining_stable.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
+        candidate = remaining_stable.pop(0)
+        tried_symbols.add(candidate)
+        cand_price = get_current_prices([candidate]).get(candidate, 0.0)
+        if cand_price > 0:
+            final_stable.append(candidate)
+            prices[candidate] = cand_price
+            console.print(f"[bold green]Selected replacement stable coin: {candidate.replace('USDT', '')} (${cand_price:.4f})[/bold green]")
+            
+    final_volatile = []
+    for coin in volatile_picks:
+        price = prices.get(coin, 0.0)
+        if price > 0:
+            final_volatile.append(coin)
+        else:
+            console.print(f"[bold red]Discarded volatile coin {coin.replace('USDT', '')} due to invalid price ($0.0). Finding replacement...[/bold red]")
+            
+    remaining_volatile = [v for v in available_volatile if v not in tried_symbols]
+    while len(final_volatile) < volatile_count and remaining_volatile:
+        remaining_volatile.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
+        candidate = remaining_volatile.pop(0)
+        tried_symbols.add(candidate)
+        cand_price = get_current_prices([candidate]).get(candidate, 0.0)
+        if cand_price > 0:
+            final_volatile.append(candidate)
+            prices[candidate] = cand_price
+            console.print(f"[bold green]Selected replacement volatile coin: {candidate.replace('USDT', '')} (${cand_price:.4f})[/bold green]")
+            
+    final_portfolio = final_stable + final_volatile
+    
+    if not final_portfolio:
+        console.print("[bold red]Could not find any coins with non-zero prices.[/bold red]")
+        return
+        
+    add_portfolio_record(final_portfolio, prices)
+    
+    # Print recommended portfolio
     p_table = Table(title="Recommended Portfolio")
     p_table.add_column("Coin", style="magenta")
     p_table.add_column("Type", style="cyan")
     p_table.add_column("Entry Price", justify="right")
     p_table.add_column("Heuristic Score", justify="right")
     
-    for coin in portfolio:
+    stable_set = set(final_stable)
+    for coin in final_portfolio:
         c_type = "Stable" if coin in stable_set else "Volatile"
         price_str = f"${prices.get(coin, 0):.4f}"
         score_str = f"{scores.get(coin, 10.0):.2f}"
@@ -111,6 +187,17 @@ def run_portfolio(
         
     console.print(p_table)
     console.print("\n[bold green]Done! Run again later to evaluate these picks and get a new portfolio.[/bold green]")
+
+@app.command(name="run")
+def run_portfolio(
+    stable: int = typer.Option(3, min=1, help="Number of stable coins to pick"),
+    volatile: int = typer.Option(6, min=1, help="Number of volatile coins to pick")
+):
+    """
+    Evaluates the previous portfolio (if any) and generates a new portfolio of coins.
+    """
+    console.print("[bold blue]Starting Crypto Portfolio Generator...[/bold blue]")
+    asyncio.run(async_run_portfolio(stable_count=stable, volatile_count=volatile))
 
 @app.command(name="history")
 def show_history():
