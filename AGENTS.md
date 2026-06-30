@@ -18,4 +18,6 @@ You are an AI coding agent assigned to build and maintain the `daily-coin` CLI.
 **Quick Command Reference:**
 - **Run the CLI Application:** `.\venv\Scripts\python.exe main.py run` (or `python main.py run` inside activated venv)
 - **Run tests:** `.\venv\Scripts\python.exe -m pytest` (do NOT run raw `pytest` outside python wrapper, or import path errors will occur)
+- **Shortcut `/run`**: Run the app and print the portfolio (equivalent to `.\venv\Scripts\python.exe main.py run`).
+- **Shortcut `/m&p`**: Merge to main, commit, and push if any of them are needed.
 

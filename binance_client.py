@@ -37,7 +37,11 @@ def get_tradeable_symbols(limit=30):
         ][:limit]
     try:
         tickers = client.get_ticker()
-        usdt_pairs = [t for t in tickers if t['symbol'].endswith('USDT')]
+        excluded_bases = {"USDC", "FDUSD", "TUSD", "BUSD", "USD1", "EUR", "DAI", "USDD", "PYUSD", "USDP", "AEUR"}
+        usdt_pairs = [
+            t for t in tickers 
+            if t['symbol'].endswith('USDT') and t['symbol'][:-4] not in excluded_bases
+        ]
         usdt_pairs.sort(key=lambda x: float(x['quoteVolume']), reverse=True)
         return [t['symbol'] for t in usdt_pairs[:limit]]
     except Exception:
