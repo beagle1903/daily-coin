@@ -26,21 +26,36 @@ def get_sync_client():
         USE_MOCK_DATA = True
         return None
 
+def load_midas_allowlist():
+    try:
+        path = os.path.join(os.path.dirname(__file__), 'midas_coins.json')
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                return set(json.load(f))
+    except Exception:
+        pass
+    return None
+
 def get_tradeable_symbols(limit=30):
+    allowlist = load_midas_allowlist()
     client = get_sync_client()
     if USE_MOCK_DATA or client is None:
-        return [
+        mock_symbols = [
             "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", 
             "XRPUSDT", "DOTUSDT", "LTCUSDT", "DOGEUSDT", "AVAXUSDT", 
             "LINKUSDT", "SHIBUSDT", "UNIUSDT", "ATOMUSDT", "SUIUSDT", 
             "PEPEUSDT", "WIFUSDT", "FLOKIUSDT", "BONKUSDT", "HYPEUSDT"
-        ][:limit]
+        ]
+        if allowlist is not None:
+            mock_symbols = [s for s in mock_symbols if s[:-4] in allowlist]
+        return mock_symbols[:limit]
     try:
         tickers = client.get_ticker()
         excluded_bases = {"USDC", "FDUSD", "TUSD", "BUSD", "USD1", "EUR", "DAI", "USDD", "PYUSD", "USDP", "AEUR"}
         usdt_pairs = [
             t for t in tickers 
             if t['symbol'].endswith('USDT') and t['symbol'][:-4] not in excluded_bases
+            and (allowlist is None or t['symbol'][:-4] in allowlist)
         ]
         usdt_pairs.sort(key=lambda x: float(x['quoteVolume']), reverse=True)
         return [t['symbol'] for t in usdt_pairs[:limit]]

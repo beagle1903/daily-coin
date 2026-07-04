@@ -42,6 +42,7 @@
 - **Delisted Coin Safety:** Handled zero-price and delisted coins as a `-100%` performance loss (`-1.0`) to penalize future scores, and implemented candidate verification loops in `main.py` to discard and replace zero-priced picks.
 - **Expanded Test Suite:** Wrote 8 new tests (expanding suite from 10 to 18) covering async fetching mocks, E2E CLI commands via `CliRunner`, and pure DI logic, achieving a **93.6% speedup** in total runtime (from 28.63s to 1.83s).
 - **Stablecoin Filtering:** Updated `binance_client.py` to explicitly exclude fiat-pegged stablecoins (e.g., USDC, USD1, FDUSD) from being selected in the portfolio, ensuring the "stable" category only consists of low-volatility crypto assets.
+- **Midas Allowlist Integration:** Implemented a manual filtering mechanism via `midas_coins.json` to ensure the portfolio generator strictly selects from user-verified coins available on the Midas platform, preventing the selection of un-tradeable assets.
 
 ## Next Steps
 - Consider implementing a live `watch` command dashboard for users who want continuous updates instead of manual `run` cycles.
