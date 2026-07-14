@@ -43,6 +43,7 @@
 - **Expanded Test Suite:** Wrote 8 new tests (expanding suite from 10 to 18) covering async fetching mocks, E2E CLI commands via `CliRunner`, and pure DI logic, achieving a **93.6% speedup** in total runtime (from 28.63s to 1.83s).
 - **Stablecoin Filtering:** Updated `binance_client.py` to explicitly exclude fiat-pegged stablecoins (e.g., USDC, USD1, FDUSD) from being selected in the portfolio, ensuring the "stable" category only consists of low-volatility crypto assets.
 - **Midas Allowlist Integration:** Implemented a manual filtering mechanism via `midas_coins.json` to ensure the portfolio generator strictly selects from user-verified coins available on the Midas platform, preventing the selection of un-tradeable assets.
+- **Robust Offline Mock Fallback (Current Session):** Added proper exception handling to `get_tradeable_symbols`, `get_current_prices`, and `fetch_all_market_data` in `binance_client.py`. If any of the Binance API endpoints time out or throw network errors, the app prints a warning to `sys.stderr` and automatically transitions to `USE_MOCK_DATA = True`, ensuring graceful fallback and preventing CLI crashes under connection failures.
 
 ## Next Steps
 - Consider implementing a live `watch` command dashboard for users who want continuous updates instead of manual `run` cycles.

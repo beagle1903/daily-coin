@@ -37,6 +37,7 @@ def load_midas_allowlist():
     return None
 
 def get_tradeable_symbols(limit=30):
+    global USE_MOCK_DATA
     allowlist = load_midas_allowlist()
     client = get_sync_client()
     if USE_MOCK_DATA or client is None:
@@ -59,10 +60,13 @@ def get_tradeable_symbols(limit=30):
         ]
         usdt_pairs.sort(key=lambda x: float(x['quoteVolume']), reverse=True)
         return [t['symbol'] for t in usdt_pairs[:limit]]
-    except Exception:
-        return []
+    except Exception as e:
+        print(f"Warning: Binance API get_ticker failed ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
+        USE_MOCK_DATA = True
+        return get_tradeable_symbols(limit=limit)
 
 def get_current_prices(symbols):
+    global USE_MOCK_DATA
     client = get_sync_client()
     if USE_MOCK_DATA or client is None:
         mock_prices = {
@@ -96,13 +100,15 @@ def get_current_prices(symbols):
         elif isinstance(res, dict):
             return {res['symbol']: float(res['price'])}
         return {}
-    except Exception:
+    except Exception as e:
         try:
             prices = client.get_all_tickers()
             prices_map = {p['symbol']: float(p['price']) for p in prices}
             return {s: prices_map[s] for s in symbols if s in prices_map}
-        except Exception:
-            return {}
+        except Exception as e2:
+            print(f"Warning: Binance API get_current_prices failed ({type(e2).__name__}: {e2}). Falling back to Offline Mock Mode.", file=sys.stderr)
+            USE_MOCK_DATA = True
+            return get_current_prices(symbols)
 
 def calculate_rsi(closes, period=14):
     if len(closes) < period + 1:
@@ -192,8 +198,8 @@ async def fetch_all_market_data(symbols):
         return _get_mock_market_data(symbols)
     try:
         async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
-    except Exception:
-        print("Warning: Binance AsyncClient connection failed. Falling back to Offline Mock Mode.", file=sys.stderr)
+    except Exception as e:
+        print(f"Warning: Binance AsyncClient connection failed ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
         USE_MOCK_DATA = True
         return _get_mock_market_data(symbols)
     try:
@@ -201,6 +207,15 @@ async def fetch_all_market_data(symbols):
         tasks = [fetch_historical_data_async(async_client, s, semaphore) for s in symbols]
         results = await asyncio.gather(*tasks)
         
+        # If all kline fetches return empty, we likely have a generic network block/failure
+        # rather than issues with individual coins.
+        all_empty = all(not klines for _, klines in results)
+        if all_empty and symbols:
+            print("Warning: All historical kline fetches returned empty. Falling back to Offline Mock Mode.", file=sys.stderr)
+            USE_MOCK_DATA = True
+            await async_client.close_connection()
+            return _get_mock_market_data(symbols)
+            
         data_map = {}
         for symbol, klines in results:
             closes = [float(k[4]) for k in klines] if klines else []
@@ -237,5 +252,12 @@ async def fetch_all_market_data(symbols):
                 "signal": signal
             }
         return data_map
+    except Exception as e:
+        print(f"Warning: Error fetching market data ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
+        USE_MOCK_DATA = True
+        return _get_mock_market_data(symbols)
     finally:
-        await async_client.close_connection()
+        try:
+            await async_client.close_connection()
+        except Exception:
+            pass
