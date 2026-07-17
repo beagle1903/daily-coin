@@ -45,6 +45,13 @@
 - **Midas Allowlist Integration:** Implemented a manual filtering mechanism via `midas_coins.json` to ensure the portfolio generator strictly selects from user-verified coins available on the Midas platform, preventing the selection of un-tradeable assets.
 - **Robust Offline Mock Fallback (Current Session):** Added proper exception handling to `get_tradeable_symbols`, `get_current_prices`, and `fetch_all_market_data` in `binance_client.py`. If any of the Binance API endpoints time out or throw network errors, the app prints a warning to `sys.stderr` and automatically transitions to `USE_MOCK_DATA = True`, ensuring graceful fallback and preventing CLI crashes under connection failures.
 
+### Fullstack Web Application Upgrade (Current Session)
+- **FastAPI Backend:** Created `server.py` containing REST endpoints to query past portfolio history (`/api/history`) and generate new recommended portfolios (`/api/portfolio/generate`).
+- **Settings Persistence:** Added `/api/settings` endpoints to persist stable/volatile target counts dynamically in `settings.json`.
+- **Event Loop Optimization:** Wrapped all synchronous blocking calls (e.g. file I/O, synchronous Binance API fallback) in `asyncio.to_thread` to ensure non-blocking concurrent execution in FastAPI.
+- **CLI serve command:** Added a `serve` subcommand to `main.py` allowing developers to launch the FastAPI server locally.
+- **Glassmorphism React Dashboard:** Developed a premium Vite + React SPA in `/frontend` styled with a dark theme and glassmorphic designs to visual portfolio suggestions, history evaluation logs, and sentiment news analysis.
+
 ## Next Steps
-- Consider implementing a live `watch` command dashboard for users who want continuous updates instead of manual `run` cycles.
+- Implement user authentication or separate database storage for different portfolios if multi-user tracking is needed.
 - Add an explicit `--proxy` option to allow bypassing ISP blocks using user-defined proxy configurations.

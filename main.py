@@ -223,6 +223,17 @@ def show_history():
             table.add_row(coin.replace("USDT", ""), f"[{color}]{pct}[/{color}]")
         console.print(table)
         console.print("")
+@app.command(name="serve")
+def serve_api(
+    host: str = typer.Option("127.0.0.1", help="Host to bind the server to"),
+    port: int = typer.Option(8000, help="Port to bind the server to")
+):
+    """
+    Starts the FastAPI backend server.
+    """
+    import uvicorn
+    console.print(f"[bold green]Starting Daily Coin API Server on http://{host}:{port}...[/bold green]")
+    uvicorn.run("server:app", host=host, port=port, reload=True)
 
 if __name__ == "__main__":
     app()

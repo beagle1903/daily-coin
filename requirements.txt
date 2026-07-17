@@ -6,3 +6,5 @@ python-binance
 python-dotenv
 feedparser
 vaderSentiment
+fastapi
+uvicorn
