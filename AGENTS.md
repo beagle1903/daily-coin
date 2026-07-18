@@ -19,6 +19,6 @@ You are an AI coding agent assigned to build and maintain the `daily-coin` CLI.
 - **Run the CLI Application:** `.\venv\Scripts\python.exe main.py run` (or `python main.py run` inside activated venv)
 - **Run tests:** `.\venv\Scripts\python.exe -m pytest` (do NOT run raw `pytest` outside python wrapper, or import path errors will occur)
 - **Shortcut `/run`**: Run the app and print the portfolio (equivalent to `.\venv\Scripts\python.exe main.py run`).
-- **Shortcut `/run-fe`**: Start both the backend API server (`.\venv\Scripts\python.exe main.py serve`) and frontend development server (`npm run dev` in the `frontend` directory).
+- **Shortcut `/run-fe`**: Start both the backend API server (`.\venv\Scripts\python.exe main.py serve`) and frontend development server (`npm run dev` in the `frontend` directory), then print the application link in the chat.
 - **Shortcut `/m&p`**: Merge to main, commit, and push if any of them are needed.
 

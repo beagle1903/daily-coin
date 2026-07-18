@@ -51,7 +51,7 @@
 - **Event Loop Optimization:** Wrapped all synchronous blocking calls (e.g. file I/O, synchronous Binance API fallback) in `asyncio.to_thread` to ensure non-blocking concurrent execution in FastAPI.
 - **CLI serve command:** Added a `serve` subcommand to `main.py` allowing developers to launch the FastAPI server locally.
 - **Glassmorphism React Dashboard:** Developed a premium Vite + React SPA in `/frontend` styled with a dark theme and glassmorphic designs to visual portfolio suggestions, history evaluation logs, and sentiment news analysis.
-- **Agent Skill Update:** Updated the `/run-fe` agent skill and shortcut documentation to start BOTH the frontend development server and backend API server simultaneously.
+- **Agent Skill Update**: Updated the `/run-fe` agent skill to start BOTH the frontend development server and backend API server simultaneously, and to print the clickable application URL (`http://localhost:5173`) in the chat after startup.
 
 ## Next Steps
 - Implement user authentication or separate database storage for different portfolios if multi-user tracking is needed.
