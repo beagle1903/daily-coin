@@ -163,6 +163,8 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
             prices[candidate] = cand_price
             console.print(f"[bold green]Selected replacement volatile coin: {candidate.replace('USDT', '')} (${cand_price:.4f})[/bold green]")
             
+    final_stable.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
+    final_volatile.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
     final_portfolio = final_stable + final_volatile
     
     if not final_portfolio:

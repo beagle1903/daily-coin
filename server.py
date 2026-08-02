@@ -15,7 +15,7 @@ app = FastAPI(title="Daily Coin API", description="API server for the Daily Coin
 # Enable CORS for frontend development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -170,6 +170,8 @@ async def generate_portfolio(
             final_volatile.append(candidate)
             prices[candidate] = cand_price
             
+    final_stable.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
+    final_volatile.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
     final_portfolio = final_stable + final_volatile
     
     if not final_portfolio:
