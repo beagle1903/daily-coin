@@ -4,11 +4,19 @@ import time
 
 import feedparser
 
-try:
-    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-    GLOBAL_ANALYZER = SentimentIntensityAnalyzer()
-except ImportError:
-    GLOBAL_ANALYZER = None
+_ANALYZER_INSTANCE = None
+_ANALYZER_INITIALIZED = False
+
+def _get_analyzer():
+    global _ANALYZER_INSTANCE, _ANALYZER_INITIALIZED
+    if not _ANALYZER_INITIALIZED:
+        _ANALYZER_INITIALIZED = True
+        try:
+            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+            _ANALYZER_INSTANCE = SentimentIntensityAnalyzer()
+        except ImportError:
+            _ANALYZER_INSTANCE = None
+    return _ANALYZER_INSTANCE
 
 RSS_FEEDS = [
     "https://cointelegraph.com/rss",
@@ -78,7 +86,8 @@ async def get_latest_news(limit=5):
 
 def analyze_news_impact(articles):
     impacts = []
-    if not GLOBAL_ANALYZER:
+    analyzer = _get_analyzer()
+    if not analyzer:
         return impacts
         
     for article in articles:
@@ -91,7 +100,7 @@ def analyze_news_impact(articles):
                 found_symbols.add(KEYWORD_MAP[word])
                 
         if found_symbols:
-            sentiment = GLOBAL_ANALYZER.polarity_scores(headline)
+            sentiment = analyzer.polarity_scores(headline)
             compound = sentiment['compound']
             
             if abs(compound) > 0.1:

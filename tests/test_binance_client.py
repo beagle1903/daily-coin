@@ -35,23 +35,23 @@ def test_calculate_macd_sufficient_data():
     assert signal == 0.0
 
 def test_get_sync_client_mock_mode():
-    with patch("binance_client.USE_MOCK_DATA", True):
+    with patch("binance_client._is_mock_mode_active", return_value=True):
         assert get_sync_client() is None
 
 def test_get_current_prices_mock_mode():
-    with patch("binance_client.USE_MOCK_DATA", True):
+    with patch("binance_client._is_mock_mode_active", return_value=True):
         prices = get_current_prices(["BTCUSDT"])
         assert "BTCUSDT" in prices
         assert prices["BTCUSDT"] == 95230.15
 
 def test_get_tradeable_symbols_mock_mode():
-    with patch("binance_client.USE_MOCK_DATA", True):
+    with patch("binance_client._is_mock_mode_active", return_value=True):
         symbols = get_tradeable_symbols(limit=5)
         assert len(symbols) == 5
         assert "BTCUSDT" in symbols
 
 def test_fetch_all_market_data_mock_mode():
-    with patch("binance_client.USE_MOCK_DATA", True):
+    with patch("binance_client._is_mock_mode_active", return_value=True):
         res = asyncio.run(fetch_all_market_data(["BTCUSDT", "ETHUSDT"]))
         assert "BTCUSDT" in res
         assert "ETHUSDT" in res
@@ -68,9 +68,9 @@ def test_fetch_all_market_data_real_api_mocked():
     ]
     
     mock_async_client = AsyncMock()
-    mock_async_client.get_historical_klines = AsyncMock(return_value=mock_klines)
+    mock_async_client.get_klines = AsyncMock(return_value=mock_klines)
     
-    with patch("binance_client.USE_MOCK_DATA", False), \
+    with patch("binance_client._is_mock_mode_active", return_value=False), \
          patch("binance_client.AsyncClient.create", AsyncMock(return_value=mock_async_client)):
          
         res = asyncio.run(fetch_all_market_data(["BTCUSDT"]))
@@ -78,5 +78,5 @@ def test_fetch_all_market_data_real_api_mocked():
         assert "BTCUSDT" in res
         assert res["BTCUSDT"]["variance"] > 0
         assert 0 <= res["BTCUSDT"]["rsi"] <= 100
-        mock_async_client.get_historical_klines.assert_called_once()
+        mock_async_client.get_klines.assert_called_once()
         mock_async_client.close_connection.assert_called_once()

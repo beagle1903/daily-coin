@@ -1,10 +1,10 @@
 import time
 import pytest
 
-from history import load_history, save_history, clean_old_history_in_memory, TTL_SECONDS
+from history import load_history, save_history, clean_old_history_in_memory, _default_repo
 
 def test_clean_old_history_in_memory():
-    old_time = time.time() - TTL_SECONDS - 100
+    old_time = time.time() - _default_repo.ttl_seconds - 100
     recent_time = time.time() - 100
     
     history = [
@@ -18,8 +18,9 @@ def test_clean_old_history_in_memory():
     assert new_history[0]["portfolio"] == ["ETHUSDT"]
 
 def test_save_and_load_history(tmp_path, monkeypatch):
-    test_file = tmp_path / "test_history.json"
-    monkeypatch.setattr("history.HISTORY_FILE", str(test_file))
+    test_file = str(tmp_path / "test_history.json")
+    monkeypatch.setattr(_default_repo, "file_path", test_file)
+    monkeypatch.setattr(_default_repo, "lock_path", f"{test_file}.lock")
     
     history = [
         {"timestamp": time.time(), "portfolio": ["BTCUSDT"], "entry_prices": {}}
@@ -31,7 +32,8 @@ def test_save_and_load_history(tmp_path, monkeypatch):
     assert loaded[0]["portfolio"] == ["BTCUSDT"]
 
 def test_load_history_empty(tmp_path, monkeypatch):
-    test_file = tmp_path / "does_not_exist.json"
-    monkeypatch.setattr("history.HISTORY_FILE", str(test_file))
+    test_file = str(tmp_path / "does_not_exist.json")
+    monkeypatch.setattr(_default_repo, "file_path", test_file)
+    monkeypatch.setattr(_default_repo, "lock_path", f"{test_file}.lock")
     
     assert load_history() == []

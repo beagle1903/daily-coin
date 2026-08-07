@@ -10,7 +10,7 @@ from logic import evaluate_performance, load_coin_scores, pick_portfolio
 from news import analyze_news_impact, get_latest_news
 
 
-async def generate_portfolio(stable_count: int, volatile_count: int):
+async def generate_portfolio(stable_count: int, volatile_count: int, variance_percentile: float = 33.3):
     """
     Full portfolio generation pipeline:
     1. Load history once
@@ -28,22 +28,22 @@ async def generate_portfolio(stable_count: int, volatile_count: int):
     unevaluated = get_unevaluated_records(history=history)
     evaluation_results = []
 
+    # 2. Get tradeable symbols
+    valid_symbols = get_tradeable_symbols(limit=100)
+    if not valid_symbols:
+        return {"error": "Could not fetch valid symbols from Binance."}
+
     if unevaluated:
         all_coins = set()
         for record in unevaluated:
             all_coins.update(record["portfolio"])
 
         current_prices = get_current_prices(list(all_coins))
-        updated_history, results = evaluate_performance(unevaluated, current_prices, history)
+        updated_history, results = evaluate_performance(unevaluated, current_prices, history, valid_symbols)
         save_history(updated_history)
         evaluation_results = results
         # Reload history after evaluation mutations
         history = updated_history
-
-    # 2. Get tradeable symbols
-    valid_symbols = get_tradeable_symbols(limit=100)
-    if not valid_symbols:
-        return {"error": "Could not fetch valid symbols from Binance."}
 
     # 3. Fetch news and market data concurrently
     news_task = get_latest_news(limit=5)
@@ -63,9 +63,9 @@ async def generate_portfolio(stable_count: int, volatile_count: int):
     if not sorted_symbols:
         return {"error": "No valid market data retrieved from Binance."}
 
-    third = max(1, len(sorted_symbols) // 3)
-    available_stable = sorted_symbols[:third]
-    available_volatile = sorted_symbols[third:]
+    threshold_idx = max(1, int(len(sorted_symbols) * (variance_percentile / 100.0)))
+    available_stable = sorted_symbols[:threshold_idx]
+    available_volatile = sorted_symbols[threshold_idx:]
 
     universe = available_stable + available_volatile
 
@@ -87,27 +87,32 @@ async def generate_portfolio(stable_count: int, volatile_count: int):
     final_stable = [coin for coin in stable_picks if prices.get(coin, 0.0) > 0]
     final_volatile = [coin for coin in volatile_picks if prices.get(coin, 0.0) > 0]
 
-    # Replacement loop for stable coins
+    # Batch fetch prices for all remaining candidates
     remaining_stable = [s for s in available_stable if s not in tried_symbols]
+    remaining_volatile = [v for v in available_volatile if v not in tried_symbols]
+    all_remaining = remaining_stable + remaining_volatile
+    
+    if all_remaining:
+        remaining_prices = get_current_prices(all_remaining)
+        prices.update(remaining_prices)
+
+    # Replacement loop for stable coins
     while len(final_stable) < stable_count and remaining_stable:
         remaining_stable.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
         candidate = remaining_stable.pop(0)
         tried_symbols.add(candidate)
-        cand_price = get_current_prices([candidate]).get(candidate, 0.0)
+        cand_price = prices.get(candidate, 0.0)
         if cand_price > 0:
             final_stable.append(candidate)
-            prices[candidate] = cand_price
 
     # Replacement loop for volatile coins
-    remaining_volatile = [v for v in available_volatile if v not in tried_symbols]
     while len(final_volatile) < volatile_count and remaining_volatile:
         remaining_volatile.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
         candidate = remaining_volatile.pop(0)
         tried_symbols.add(candidate)
-        cand_price = get_current_prices([candidate]).get(candidate, 0.0)
+        cand_price = prices.get(candidate, 0.0)
         if cand_price > 0:
             final_volatile.append(candidate)
-            prices[candidate] = cand_price
 
     final_stable.sort(key=lambda x: scores.get(x, 10.0), reverse=True)
     final_volatile.sort(key=lambda x: scores.get(x, 10.0), reverse=True)

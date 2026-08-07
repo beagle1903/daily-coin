@@ -130,7 +130,7 @@ def test_generate_portfolio_with_params():
         response = client.get("/api/portfolio/generate?stable=2&volatile=4")
         assert response.status_code == 200
         # Verify the service was called with the query params
-        mock_gen.assert_called_once_with(stable_count=2, volatile_count=4)
+        mock_gen.assert_called_once_with(stable_count=2, volatile_count=4, variance_percentile=33.3)
 
 
 def test_generate_portfolio_error():
@@ -166,4 +166,4 @@ def test_generate_portfolio_uses_settings_fallback():
         response = client.get("/api/portfolio/generate")
         assert response.status_code == 200
         # Should use the settings values
-        mock_gen.assert_called_once_with(stable_count=5, volatile_count=8)
+        mock_gen.assert_called_once_with(stable_count=5, volatile_count=8, variance_percentile=33.3)

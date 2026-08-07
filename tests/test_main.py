@@ -49,3 +49,20 @@ def test_run_command_error():
 
         assert result.exit_code == 0
         assert "Could not fetch valid symbols" in result.output
+
+def test_history_command():
+    mock_history = [
+        {
+            "timestamp": 12345678,
+            "portfolio": ["BTCUSDT", "ETHUSDT"],
+            "entry_prices": {"BTCUSDT": 90000.0, "ETHUSDT": 3000.0},
+            "evaluated": True,
+            "performance": {"BTCUSDT": 0.05, "ETHUSDT": -0.02}
+        }
+    ]
+    with patch("main.load_history", return_value=mock_history):
+        result = runner.invoke(app, ["history"])
+        assert result.exit_code == 0
+        assert "Portfolio from" in result.output
+        assert "BTC" in result.output
+        assert "ETH" in result.output
