@@ -72,3 +72,34 @@ def test_evaluate_performance():
     
     assert updated_history[0]["evaluated"] is True
     assert updated_history[0]["performance"] == perf
+
+def test_pick_portfolio_empty():
+    stable_picks, volatile_picks = pick_portfolio([], [], {}, stable_count=1, volatile_count=2)
+    assert len(stable_picks) == 0
+    assert len(volatile_picks) == 0
+
+def test_load_coin_scores_empty_universe():
+    scores = load_coin_scores([], [])
+    assert scores == {}
+
+def test_evaluate_performance_all_zero():
+    unevaluated = [
+        {
+            "timestamp": 123456,
+            "portfolio": ["BTCUSDT", "ETHUSDT"],
+            "entry_prices": {"BTCUSDT": 0.0, "ETHUSDT": 0.0}
+        }
+    ]
+    current_prices = {"BTCUSDT": 100.0, "ETHUSDT": 50.0}
+    history = [
+        {
+            "timestamp": 123456,
+            "portfolio": ["BTCUSDT", "ETHUSDT"],
+            "entry_prices": {"BTCUSDT": 0.0, "ETHUSDT": 0.0},
+            "evaluated": False
+        }
+    ]
+    updated_history, results = evaluate_performance(unevaluated, current_prices, history, ["BTCUSDT", "ETHUSDT"])
+    
+    assert results[0]["performance"]["BTCUSDT"] == 0.0
+    assert results[0]["performance"]["ETHUSDT"] == 0.0
