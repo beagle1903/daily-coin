@@ -1,10 +1,10 @@
-typer
+typer==0.27.1
 rich
-pytest
-pydantic
-python-binance
+pytest==9.1.1
+pydantic==2.48.0
+python-binance==1.0.37
 python-dotenv
-feedparser
+feedparser==6.0.14
 vaderSentiment
-fastapi
-uvicorn
+fastapi==0.141.1
+uvicorn==0.52.1

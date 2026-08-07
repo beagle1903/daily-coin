@@ -1,15 +1,37 @@
-import math
 import asyncio
+import json
+import math
 import os
 import sys
-import json
-from binance.client import Client
+import time as _time
+
 from binance import AsyncClient
+from binance.client import Client
 from binance.exceptions import BinanceAPIException
+
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 
 _client = None
 USE_MOCK_DATA = os.environ.get("OFFLINE_MOCK", "").lower() in ("true", "1")
+
+# --- TTL Cache ---
+_cache = {}
+
+def _cache_get(key, ttl_seconds):
+    """Return cached value if key exists and hasn't expired, else None."""
+    entry = _cache.get(key)
+    if entry is not None:
+        value, ts = entry
+        if _time.time() - ts < ttl_seconds:
+            return value
+    return None
+
+def _cache_set(key, value):
+    """Store a value in the cache with the current timestamp."""
+    _cache[key] = (value, _time.time())
+
+SYMBOLS_CACHE_TTL = 3600      # 1 hour
+MARKET_DATA_CACHE_TTL = 900   # 15 minutes
 
 def get_sync_client():
     global _client, USE_MOCK_DATA
@@ -38,6 +60,12 @@ def load_midas_allowlist():
 
 def get_tradeable_symbols(limit=30):
     global USE_MOCK_DATA
+    # Check cache first
+    cache_key = f"tradeable_symbols_{limit}"
+    cached = _cache_get(cache_key, SYMBOLS_CACHE_TTL)
+    if cached is not None:
+        return cached
+
     allowlist = load_midas_allowlist()
     client = get_sync_client()
     if USE_MOCK_DATA or client is None:
@@ -49,7 +77,9 @@ def get_tradeable_symbols(limit=30):
         ]
         if allowlist is not None:
             mock_symbols = [s for s in mock_symbols if s[:-4] in allowlist]
-        return mock_symbols[:limit]
+        result = mock_symbols[:limit]
+        _cache_set(cache_key, result)
+        return result
     try:
         tickers = client.get_ticker()
         excluded_bases = {"USDC", "FDUSD", "TUSD", "BUSD", "USD1", "EUR", "DAI", "USDD", "PYUSD", "USDP", "AEUR"}
@@ -59,7 +89,9 @@ def get_tradeable_symbols(limit=30):
             and (allowlist is None or t['symbol'][:-4] in allowlist)
         ]
         usdt_pairs.sort(key=lambda x: float(x['quoteVolume']), reverse=True)
-        return [t['symbol'] for t in usdt_pairs[:limit]]
+        result = [t['symbol'] for t in usdt_pairs[:limit]]
+        _cache_set(cache_key, result)
+        return result
     except Exception as e:
         print(f"Warning: Binance API get_ticker failed ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
         USE_MOCK_DATA = True
@@ -100,7 +132,7 @@ def get_current_prices(symbols):
         elif isinstance(res, dict):
             return {res['symbol']: float(res['price'])}
         return {}
-    except Exception as e:
+    except Exception:
         try:
             prices = client.get_all_tickers()
             prices_map = {p['symbol']: float(p['price']) for p in prices}
@@ -194,8 +226,16 @@ def _get_mock_market_data(symbols):
 
 async def fetch_all_market_data(symbols):
     global USE_MOCK_DATA
+    # Check cache first
+    cache_key = "market_data_" + ",".join(sorted(symbols))
+    cached = _cache_get(cache_key, MARKET_DATA_CACHE_TTL)
+    if cached is not None:
+        return cached
+
     if USE_MOCK_DATA:
-        return _get_mock_market_data(symbols)
+        result = _get_mock_market_data(symbols)
+        _cache_set(cache_key, result)
+        return result
     try:
         async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
     except Exception as e:
@@ -251,6 +291,7 @@ async def fetch_all_market_data(symbols):
                 "macd": macd,
                 "signal": signal
             }
+        _cache_set(cache_key, data_map)
         return data_map
     except Exception as e:
         print(f"Warning: Error fetching market data ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
