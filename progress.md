@@ -123,6 +123,16 @@
 - **Lazy Init:** VADER sentiment analysis in `news.py` is now lazy-loaded, speeding up CLI non-news commands.
 - **Testing:** Fixed and expanded coverage for all new functionality. Test suite remains 100% passing (40/40).
 
+### P2 Defect Fixes & Performance Optimization (Current Session)
+- **Numpy Vectorization:** Refactored RSI, MACD, and Variance computations in `binance_client.py` using `numpy` arrays for high-speed mathematical throughput.
+- **Targeted Fallbacks:** Removed `get_all_tickers()` mass exchange fetching in favor of per-symbol price lookups.
+- **Guard Clauses:** Eliminated recursive error fallback loops across `binance_client.py`, replacing them with flat early returns.
+- **Centralized Constants:** Extracted all magic numbers across the codebase into `constants.py`.
+- **Enhanced Crypto VADER & News Logic:** Added crypto lexicon dictionary to VADER, raised compound score threshold to `0.25`, deduplicated per-coin sentiment impacts by averaging compound scores, and dynamically built symbol keyword maps from active tradeable symbols.
+- **Restricted CORS:** Tightened FastAPI CORS headers and allowed methods to `GET` and `POST`.
+- **Standardized Logging:** Replaced raw `sys.stderr` `print` calls with standard `logging.warning()` statements.
+- **Expanded Unit Testing:** Added edge case unit tests in `test_logic.py`, expanding the test suite to 43/43 passing tests.
+
 ## Next Steps
-- Address P2 findings listed in `reviews/SUMMARY.md` (e.g., API rate limiting).
-- Implement user authentication or separate database storage for multi-user tracking.
+- Revisit optional P1 security items (e.g. API key authentication & `slowapi` rate limiting).
+- Implement database storage / ORM for multi-user tracking.
