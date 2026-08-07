@@ -4,6 +4,8 @@ import time
 
 import feedparser
 
+from constants import VADER_THRESHOLD, VADER_MULTIPLIER, VADER_CRYPTO_LEXICON
+
 _ANALYZER_INSTANCE = None
 _ANALYZER_INITIALIZED = False
 
@@ -14,6 +16,7 @@ def _get_analyzer():
         try:
             from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
             _ANALYZER_INSTANCE = SentimentIntensityAnalyzer()
+            _ANALYZER_INSTANCE.lexicon.update(VADER_CRYPTO_LEXICON)
         except ImportError:
             _ANALYZER_INSTANCE = None
     return _ANALYZER_INSTANCE
@@ -23,29 +26,33 @@ RSS_FEEDS = [
     "https://www.coindesk.com/arc/outboundfeeds/rss/"
 ]
 
-KEYWORD_MAP = {
-    "bitcoin": "BTCUSDT", "btc": "BTCUSDT",
-    "ethereum": "ETHUSDT", "eth": "ETHUSDT",
-    "binance": "BNBUSDT", "bnb": "BNBUSDT",
-    "cardano": "ADAUSDT", "ada": "ADAUSDT",
-    "ripple": "XRPUSDT", "xrp": "XRPUSDT",
-    "solana": "SOLUSDT", "sol": "SOLUSDT",
-    "chainlink": "LINKUSDT", "link": "LINKUSDT",
-    "avalanche": "AVAXUSDT", "avax": "AVAXUSDT",
-    "uniswap": "UNIUSDT", "uni": "UNIUSDT",
-    "polkadot": "DOTUSDT", "dot": "DOTUSDT",
-    "litecoin": "LTCUSDT", "ltc": "LTCUSDT",
-    "polygon": "MATICUSDT", "matic": "MATICUSDT",
-    "cosmos": "ATOMUSDT", "atom": "ATOMUSDT",
-    "sui": "SUIUSDT",
-    "hype": "HYPEUSDT",
-    "pepe": "PEPEUSDT",
-    "shiba": "SHIBUSDT", "shib": "SHIBUSDT",
-    "dogecoin": "DOGEUSDT", "doge": "DOGEUSDT",
-    "dogwifhat": "WIFUSDT", "wif": "WIFUSDT",
-    "bonk": "BONKUSDT",
-    "floki": "FLOKIUSDT"
-}
+def build_keyword_map(tradeable_symbols):
+    """Dynamically builds a keyword map from tradeable symbols list."""
+    keyword_map = {
+        "bitcoin": "BTCUSDT",
+        "ethereum": "ETHUSDT",
+        "binance": "BNBUSDT",
+        "cardano": "ADAUSDT",
+        "ripple": "XRPUSDT",
+        "solana": "SOLUSDT",
+        "chainlink": "LINKUSDT",
+        "avalanche": "AVAXUSDT",
+        "uniswap": "UNIUSDT",
+        "polkadot": "DOTUSDT",
+        "litecoin": "LTCUSDT",
+        "polygon": "MATICUSDT",
+        "cosmos": "ATOMUSDT",
+        "dogecoin": "DOGEUSDT",
+        "dogwifhat": "WIFUSDT",
+        "shiba": "SHIBUSDT"
+    }
+    
+    if tradeable_symbols:
+        for symbol in tradeable_symbols:
+            base = symbol[:-4].lower()
+            keyword_map[base] = symbol
+            
+    return keyword_map
 
 async def get_latest_news(limit=5):
     # Run the blocking feedparser.parse calls concurrently in background threads
@@ -84,33 +91,49 @@ async def get_latest_news(limit=5):
     articles.sort(key=lambda x: x['timestamp'], reverse=True)
     return articles[:limit]
 
-def analyze_news_impact(articles):
+def analyze_news_impact(articles, tradeable_symbols=None):
     impacts = []
     analyzer = _get_analyzer()
     if not analyzer:
         return impacts
         
+    keyword_map = build_keyword_map(tradeable_symbols)
+    coin_compounds = {}
+    
     for article in articles:
         headline = article.get("title", "")
         words = re.findall(r'\b\w+\b', headline.lower())
         
         found_symbols = set()
         for word in words:
-            if word in KEYWORD_MAP:
-                found_symbols.add(KEYWORD_MAP[word])
+            if word in keyword_map:
+                found_symbols.add(keyword_map[word])
                 
         if found_symbols:
             sentiment = analyzer.polarity_scores(headline)
             compound = sentiment['compound']
             
-            if abs(compound) > 0.1:
-                adjustment = compound * 2.0
-                for symbol in found_symbols:
-                    impacts.append({
-                        "coin": symbol,
-                        "headline": headline,
-                        "polarity": compound,
-                        "adjustment": adjustment,
-                        "sentiment": "Bullish" if compound > 0 else "Bearish"
-                    })
+            for symbol in found_symbols:
+                if symbol not in coin_compounds:
+                    coin_compounds[symbol] = []
+                coin_compounds[symbol].append({
+                    "compound": compound,
+                    "headline": headline
+                })
+                
+    for symbol, records in coin_compounds.items():
+        avg_compound = sum(r['compound'] for r in records) / len(records)
+        
+        if abs(avg_compound) > VADER_THRESHOLD:
+            adjustment = avg_compound * VADER_MULTIPLIER
+            # Use the headline from the most impactful record for display
+            best_record = max(records, key=lambda r: abs(r['compound']))
+            impacts.append({
+                "coin": symbol,
+                "headline": best_record['headline'],
+                "polarity": avg_compound,
+                "adjustment": adjustment,
+                "sentiment": "Bullish" if avg_compound > 0 else "Bearish"
+            })
+            
     return impacts

@@ -53,7 +53,7 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
 
     impacts = []
     if news_items:
-        impacts = analyze_news_impact(news_items)
+        impacts = analyze_news_impact(news_items, valid_symbols)
 
     # 4. Categorize symbols based on variance
     sorted_symbols = sorted(

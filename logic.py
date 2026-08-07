@@ -1,5 +1,7 @@
 import random
 
+from constants import SCORE_FLOOR, SCORE_CEILING, MAX_PER_RECORD_ADJUSTMENT, INITIAL_SCORE
+
 
 def load_coin_scores(universe, history, sentiment_impacts=None, technical_indicators=None):
     """
@@ -10,11 +12,7 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
     :param sentiment_impacts: List of sentiment impact dicts from news analysis
     :param technical_indicators: Dict of symbol -> {"rsi": ..., "macd": ..., "signal": ...}
     """
-    SCORE_FLOOR = 1.0
-    SCORE_CEILING = 30.0
-    MAX_PER_RECORD_ADJUSTMENT = 5.0
-
-    scores = {coin: 10.0 for coin in universe}
+    scores = {coin: INITIAL_SCORE for coin in universe}
     
     # Adjust based on history: average adjustments across records, cap each
     coin_adjustments = {coin: [] for coin in universe}
@@ -75,7 +73,7 @@ def pick_portfolio(available_stable, available_volatile, scores, stable_count=3,
         selected = set()
         pop_copy = list(population)
         while len(selected) < k and pop_copy:
-            weights = [scores.get(c, 10.0) for c in pop_copy]
+            weights = [scores.get(c, INITIAL_SCORE) for c in pop_copy]
             choice = random.choices(pop_copy, weights=weights, k=1)[0]
             selected.add(choice)
             pop_copy.remove(choice)
