@@ -86,15 +86,21 @@ def pick_portfolio(available_stable, available_volatile, scores, stable_count=3,
     
     return stable_picks, volatile_picks
 
-def evaluate_performance(unevaluated_records, current_prices, history):
+def evaluate_performance(unevaluated_records, current_prices, history, tradeable_symbols=None):
     """
     Pure function that evaluates the performance of unevaluated past records.
     
     :param unevaluated_records: List of unevaluated history records
     :param current_prices: Dict of coin symbol -> current price
     :param history: The complete list of history records to be updated
+    :param tradeable_symbols: Optional set/list of currently tradeable symbols to distinguish between fetch failure and delisting
     :return: (updated_history, results)
     """
+    if tradeable_symbols is None:
+        tradeable_symbols = set()
+    else:
+        tradeable_symbols = set(tradeable_symbols)
+
     results = []
     updated_history = [dict(r) for r in history]
     
@@ -109,8 +115,12 @@ def evaluate_performance(unevaluated_records, current_prices, history):
             if old_p > 0 and curr_p > 0:
                 performance[coin] = (curr_p - old_p) / old_p
             elif curr_p == 0 and old_p > 0:
-                # Coin was delisted or price fetch failed; record -100% performance loss
-                performance[coin] = -1.0
+                if not tradeable_symbols or coin not in tradeable_symbols:
+                    # Coin was delisted; record -100% performance loss
+                    performance[coin] = -1.0
+                else:
+                    # Transient price fetch error, but coin still tradeable. Assume 0.0 change.
+                    performance[coin] = 0.0
             else:
                 performance[coin] = 0.0
                 

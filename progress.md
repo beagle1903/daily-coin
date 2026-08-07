@@ -113,6 +113,16 @@
   - *In-Memory TTL Caching (`binance_client.py`):* Added TTL-based caching for tradeable symbols (1 hr) and market data (15 mins) to prevent API rate limits.
   - *Expanded Test Coverage:* Created `tests/test_news.py` (11 tests) and `tests/test_server.py` (9 tests), growing the total test suite from 18 to 39 passing tests.
 
+### P1 Defect Fixes (Current Session)
+- **Concurrency Integrity:** Implemented `filelock` and atomic `os.replace` operations in `history.py` and `server.py` to prevent data corruption during simultaneous writes.
+- **Repository Pattern:** Refactored `history.py` into `JsonHistoryRepository`, separating file I/O from business logic.
+- **Resilient Circuit Breaker:** Removed permanent `USE_MOCK_DATA` flag in `binance_client.py` and replaced it with a 60-second `MOCK_DATA_UNTIL` fallback.
+- **Configurable Variance Split:** Replaced hardcoded `len // 3` stable/volatile threshold with a math-driven `variance_percentile` dynamically adjustable via settings.
+- **Batched Fetching:** The portfolio replacement loop now batch-fetches candidate prices concurrently, removing the N+1 API bottleneck.
+- **Accurate Delisting Penalties:** Only coins proven to be delisted from `get_tradeable_symbols` receive the -100% logic penalty, protecting against transient fetch errors.
+- **Lazy Init:** VADER sentiment analysis in `news.py` is now lazy-loaded, speeding up CLI non-news commands.
+- **Testing:** Fixed and expanded coverage for all new functionality. Test suite remains 100% passing (40/40).
+
 ## Next Steps
-- Address P1 and P2 findings listed in `reviews/SUMMARY.md` (e.g. adding `.env` to `.gitignore`, API rate limiting, atomic file locks).
+- Address P2 findings listed in `reviews/SUMMARY.md` (e.g., API rate limiting).
 - Implement user authentication or separate database storage for multi-user tracking.

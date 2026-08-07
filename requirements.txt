@@ -8,3 +8,4 @@ feedparser==6.0.14
 vaderSentiment
 fastapi==0.141.1
 uvicorn==0.52.1
+filelock==3.17.0

@@ -12,8 +12,17 @@ from binance.exceptions import BinanceAPIException
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 
 _client = None
-USE_MOCK_DATA = os.environ.get("OFFLINE_MOCK", "").lower() in ("true", "1")
+MOCK_DATA_UNTIL = 0
 
+def _is_mock_mode_active():
+    if os.environ.get("OFFLINE_MOCK", "").lower() in ("true", "1"):
+        return True
+    return _time.time() < MOCK_DATA_UNTIL
+
+def _activate_circuit_breaker(err_msg):
+    global MOCK_DATA_UNTIL
+    print(f"Warning: {err_msg}. Activating Offline Mock Mode for 60 seconds.", file=sys.stderr)
+    MOCK_DATA_UNTIL = _time.time() + 60
 # --- TTL Cache ---
 _cache = {}
 
@@ -34,8 +43,8 @@ SYMBOLS_CACHE_TTL = 3600      # 1 hour
 MARKET_DATA_CACHE_TTL = 900   # 15 minutes
 
 def get_sync_client():
-    global _client, USE_MOCK_DATA
-    if USE_MOCK_DATA:
+    global _client
+    if _is_mock_mode_active():
         return None
     if _client is not None:
         return _client
@@ -43,9 +52,8 @@ def get_sync_client():
         # Set a short timeout for the initial ping to avoid long hangs
         _client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, requests_params={'timeout': 5})
         return _client
-    except Exception:
-        print("Warning: Binance API connection failed. Falling back to Offline Mock Mode.", file=sys.stderr)
-        USE_MOCK_DATA = True
+    except Exception as e:
+        _activate_circuit_breaker(f"Binance API connection failed ({type(e).__name__}: {e})")
         return None
 
 def load_midas_allowlist():
@@ -59,7 +67,6 @@ def load_midas_allowlist():
     return None
 
 def get_tradeable_symbols(limit=30):
-    global USE_MOCK_DATA
     # Check cache first
     cache_key = f"tradeable_symbols_{limit}"
     cached = _cache_get(cache_key, SYMBOLS_CACHE_TTL)
@@ -68,7 +75,7 @@ def get_tradeable_symbols(limit=30):
 
     allowlist = load_midas_allowlist()
     client = get_sync_client()
-    if USE_MOCK_DATA or client is None:
+    if _is_mock_mode_active() or client is None:
         mock_symbols = [
             "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "ADAUSDT", 
             "XRPUSDT", "DOTUSDT", "LTCUSDT", "DOGEUSDT", "AVAXUSDT", 
@@ -93,14 +100,12 @@ def get_tradeable_symbols(limit=30):
         _cache_set(cache_key, result)
         return result
     except Exception as e:
-        print(f"Warning: Binance API get_ticker failed ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
-        USE_MOCK_DATA = True
+        _activate_circuit_breaker(f"Binance API get_ticker failed ({type(e).__name__}: {e})")
         return get_tradeable_symbols(limit=limit)
 
 def get_current_prices(symbols):
-    global USE_MOCK_DATA
     client = get_sync_client()
-    if USE_MOCK_DATA or client is None:
+    if _is_mock_mode_active() or client is None:
         mock_prices = {
             "BTCUSDT": 95230.15,
             "ETHUSDT": 3120.45,
@@ -138,8 +143,7 @@ def get_current_prices(symbols):
             prices_map = {p['symbol']: float(p['price']) for p in prices}
             return {s: prices_map[s] for s in symbols if s in prices_map}
         except Exception as e2:
-            print(f"Warning: Binance API get_current_prices failed ({type(e2).__name__}: {e2}). Falling back to Offline Mock Mode.", file=sys.stderr)
-            USE_MOCK_DATA = True
+            _activate_circuit_breaker(f"Binance API get_current_prices failed ({type(e2).__name__}: {e2})")
             return get_current_prices(symbols)
 
 def calculate_rsi(closes, period=14):
@@ -189,116 +193,78 @@ def calculate_macd(closes):
     signal_series = ema_array(valid_macd, 9)
     return valid_macd[-1], signal_series[-1]
 
-async def fetch_with_retry(async_client, symbol, days):
-    retries = 3
-    for i in range(retries):
-        try:
-            return await async_client.get_historical_klines(symbol, AsyncClient.KLINE_INTERVAL_4HOUR, f"{days} days ago UTC")
-        except BinanceAPIException as e:
-            if e.status_code == 429 and i < retries - 1:
-                await asyncio.sleep(2 ** i)
-                continue
-            return []
-        except Exception:
-            return []
-    return []
-
-async def fetch_historical_data_async(async_client, symbol, semaphore):
-    async with semaphore:
-        klines = await fetch_with_retry(async_client, symbol, 60)
-        return symbol, klines
-
-def _get_mock_market_data(symbols):
+async def fetch_all_market_data(symbols, max_retries=3):
     import random
-    res = {}
-    for s in symbols:
-        if s in ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "XRPUSDT", "DOTUSDT", "LTCUSDT", "ATOMUSDT"]:
-            var_val = random.uniform(0.01, 0.03)
-        else:
-            var_val = random.uniform(0.04, 0.10)
-        res[s] = {
-            "variance": var_val,
-            "rsi": random.uniform(25.0, 75.0),
-            "macd": random.uniform(-1.0, 1.0),
-            "signal": random.uniform(-1.0, 1.0)
-        }
-    return res
-
-async def fetch_all_market_data(symbols):
-    global USE_MOCK_DATA
     # Check cache first
-    cache_key = "market_data_" + ",".join(sorted(symbols))
+    cache_key = f"market_data_{hash(tuple(sorted(symbols)))}"
     cached = _cache_get(cache_key, MARKET_DATA_CACHE_TTL)
     if cached is not None:
         return cached
 
-    if USE_MOCK_DATA:
-        result = _get_mock_market_data(symbols)
-        _cache_set(cache_key, result)
-        return result
+    if _is_mock_mode_active():
+        mock_data = {
+            s: {"rsi": random.uniform(30.0, 70.0), "variance": random.uniform(0.01, 0.15), "macd": 0.0, "signal": 0.0}
+            for s in symbols
+        }
+        _cache_set(cache_key, mock_data)
+        return mock_data
+
+    client = None
     try:
-        async_client = await AsyncClient.create(BINANCE_API_KEY, BINANCE_API_SECRET)
+        client = await AsyncClient.create(api_key=BINANCE_API_KEY, api_secret=BINANCE_API_SECRET)
     except Exception as e:
-        print(f"Warning: Binance AsyncClient connection failed ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
-        USE_MOCK_DATA = True
-        return _get_mock_market_data(symbols)
+        _activate_circuit_breaker(f"Binance AsyncClient creation failed ({type(e).__name__}: {e})")
+        return await fetch_all_market_data(symbols)
+
+    sem = asyncio.Semaphore(15)
+
+    async def fetch_with_semaphore(symbol):
+        for attempt in range(max_retries):
+            try:
+                async with sem:
+                    klines = await asyncio.wait_for(
+                        client.get_klines(
+                            symbol=symbol,
+                            interval=AsyncClient.KLINE_INTERVAL_4HOUR,
+                            limit=360  # ~60 days of 4h klines
+                        ),
+                        timeout=5.0
+                    )
+                    return symbol, klines
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    _activate_circuit_breaker(f"Binance API kline fetch failed for {symbol} after {max_retries} attempts ({type(e).__name__}: {e})")
+                    return symbol, None
+                await asyncio.sleep(1)
+
     try:
-        semaphore = asyncio.Semaphore(15)
-        tasks = [fetch_historical_data_async(async_client, s, semaphore) for s in symbols]
+        tasks = [fetch_with_semaphore(s) for s in symbols]
         results = await asyncio.gather(*tasks)
         
-        # If all kline fetches return empty, we likely have a generic network block/failure
-        # rather than issues with individual coins.
-        all_empty = all(not klines for _, klines in results)
-        if all_empty and symbols:
-            print("Warning: All historical kline fetches returned empty. Falling back to Offline Mock Mode.", file=sys.stderr)
-            USE_MOCK_DATA = True
-            await async_client.close_connection()
-            return _get_mock_market_data(symbols)
-            
         data_map = {}
         for symbol, klines in results:
             closes = [float(k[4]) for k in klines] if klines else []
             if not closes:
-                data_map[symbol] = {
-                    "variance": 0.0,
-                    "rsi": 50.0,
-                    "macd": 0.0,
-                    "signal": 0.0
-                }
+                data_map[symbol] = {"variance": 0.0, "rsi": 50.0, "macd": 0.0, "signal": 0.0}
                 continue
             
-            # Calculate 30-day variance (using last 180 candles of 4h interval)
             closes_30d = closes[-180:] if len(closes) >= 180 else closes
             variance = 0.0
             if len(closes_30d) >= 2:
-                returns = []
-                for i in range(1, len(closes_30d)):
-                    prev = closes_30d[i-1]
-                    curr = closes_30d[i]
-                    if prev > 0:
-                        returns.append((curr - prev) / prev)
+                returns = [(closes_30d[i] - closes_30d[i-1]) / closes_30d[i-1] for i in range(1, len(closes_30d)) if closes_30d[i-1] > 0]
                 if returns:
-                    mean_return = sum(returns) / len(returns)
-                    var_val = sum((r - mean_return) ** 2 for r in returns) / len(returns)
-                    variance = math.sqrt(var_val)
+                    mean = sum(returns) / len(returns)
+                    variance = math.sqrt(sum((r - mean) ** 2 for r in returns) / len(returns))
                     
             rsi = calculate_rsi(closes)
             macd, signal = calculate_macd(closes)
-            data_map[symbol] = {
-                "variance": variance,
-                "rsi": rsi,
-                "macd": macd,
-                "signal": signal
-            }
+            data_map[symbol] = {"variance": variance, "rsi": rsi, "macd": macd, "signal": signal}
+        
         _cache_set(cache_key, data_map)
         return data_map
     except Exception as e:
-        print(f"Warning: Error fetching market data ({type(e).__name__}: {e}). Falling back to Offline Mock Mode.", file=sys.stderr)
-        USE_MOCK_DATA = True
-        return _get_mock_market_data(symbols)
+        _activate_circuit_breaker(f"Binance API fetch_all_market_data gather failed ({type(e).__name__}: {e})")
+        return await fetch_all_market_data(symbols)
     finally:
-        try:
-            await async_client.close_connection()
-        except Exception:
-            pass
+        if client:
+            await client.close_connection()

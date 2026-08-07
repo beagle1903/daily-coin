@@ -130,6 +130,7 @@ def test_analyze_news_impact_empty_articles():
 
 
 def test_analyze_news_impact_no_analyzer():
-    with patch("news.GLOBAL_ANALYZER", None):
+    # If the _get_analyzer function returns None, it should gracefully return empty impacts
+    with patch("news._get_analyzer", return_value=None):
         impacts = analyze_news_impact([{"title": "Bitcoin moon"}])
         assert impacts == []

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import os
-
+from filelock import FileLock
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -25,23 +25,31 @@ SETTINGS_FILE = "settings.json"
 class SettingsModel(BaseModel):
     stable_count: int
     volatile_count: int
+    variance_percentile: float = 33.3
 
 def load_settings_sync() -> SettingsModel:
-    if os.path.exists(SETTINGS_FILE):
-        try:
-            with open(SETTINGS_FILE, "r") as f:
-                data = json.load(f)
-                return SettingsModel(
-                    stable_count=data.get("stable_count", 3),
-                    volatile_count=data.get("volatile_count", 6)
-                )
-        except Exception:
-            pass
-    return SettingsModel(stable_count=3, volatile_count=6)
+    lock_path = f"{SETTINGS_FILE}.lock"
+    with FileLock(lock_path):
+        if os.path.exists(SETTINGS_FILE):
+            try:
+                with open(SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                    return SettingsModel(
+                        stable_count=data.get("stable_count", 3),
+                        volatile_count=data.get("volatile_count", 6),
+                        variance_percentile=data.get("variance_percentile", 33.3)
+                    )
+            except Exception:
+                pass
+    return SettingsModel(stable_count=3, volatile_count=6, variance_percentile=33.3)
 
 def save_settings_sync(settings: SettingsModel):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings.model_dump(), f, indent=2)
+    lock_path = f"{SETTINGS_FILE}.lock"
+    temp_path = f"{SETTINGS_FILE}.tmp"
+    with FileLock(lock_path):
+        with open(temp_path, "w") as f:
+            json.dump(settings.model_dump(), f, indent=2)
+        os.replace(temp_path, SETTINGS_FILE)
 
 @app.get("/api/settings", response_model=SettingsModel)
 async def get_settings():
@@ -81,7 +89,9 @@ async def generate_portfolio(
 
     # Delegate to the shared portfolio service
     result = await run_portfolio_generation(
-        stable_count=stable_val, volatile_count=volatile_val
+        stable_count=stable_val, 
+        volatile_count=volatile_val,
+        variance_percentile=persistent_settings.variance_percentile
     )
 
     if "error" in result:
