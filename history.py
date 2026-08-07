@@ -34,5 +34,7 @@ def add_portfolio_record(portfolio, prices):
     valid_history = clean_old_history_in_memory(history)
     save_history(valid_history)
 
-def get_unevaluated_records():
-    return [r for r in load_history() if not r.get("evaluated", False)]
+def get_unevaluated_records(history=None):
+    if history is None:
+        history = load_history()
+    return [r for r in history if not r.get("evaluated", False)]

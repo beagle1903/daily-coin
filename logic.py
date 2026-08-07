@@ -1,5 +1,6 @@
 import random
 
+
 def load_coin_scores(universe, history, sentiment_impacts=None, technical_indicators=None):
     """
     Pure function that calculates heuristic scores for the coin universe.
@@ -9,22 +10,33 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
     :param sentiment_impacts: List of sentiment impact dicts from news analysis
     :param technical_indicators: Dict of symbol -> {"rsi": ..., "macd": ..., "signal": ...}
     """
+    SCORE_FLOOR = 1.0
+    SCORE_CEILING = 30.0
+    MAX_PER_RECORD_ADJUSTMENT = 5.0
+
     scores = {coin: 10.0 for coin in universe}
     
-    # Adjust based on history
+    # Adjust based on history: average adjustments across records, cap each
+    coin_adjustments = {coin: [] for coin in universe}
     for record in history:
         if record.get("evaluated") and "performance" in record:
             for coin, p_change in record["performance"].items():
-                if coin in scores:
-                    adjustment = p_change * 100
-                    scores[coin] = max(1.0, scores[coin] + adjustment)
+                if coin in coin_adjustments:
+                    raw = p_change * 100
+                    capped = max(-MAX_PER_RECORD_ADJUSTMENT, min(MAX_PER_RECORD_ADJUSTMENT, raw))
+                    coin_adjustments[coin].append(capped)
+
+    for coin, adjustments in coin_adjustments.items():
+        if adjustments:
+            avg_adjustment = sum(adjustments) / len(adjustments)
+            scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin] + avg_adjustment))
                         
     # Apply news sentiment impacts
     if sentiment_impacts:
         for impact in sentiment_impacts:
             coin = impact["coin"]
             if coin in scores:
-                scores[coin] = max(1.0, scores[coin] + impact["adjustment"])
+                scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin] + impact["adjustment"]))
                     
     # Apply Technical Indicator modifiers
     if technical_indicators:
@@ -44,7 +56,7 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
             elif macd < signal:
                 scores[coin] -= 1.0
                 
-            scores[coin] = max(1.0, scores[coin])
+            scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin]))
                         
     return scores
 

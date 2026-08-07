@@ -20,9 +20,10 @@ def test_load_coin_scores():
     }
     
     scores = load_coin_scores(universe, history, sentiment_impacts, technical_indicators)
-    # BTCUSDT score: 10.0 + 5.0 (history) + 0.5 (sentiment) + 3.0 (technical) = 18.5
-    # ETHUSDT score: 10.0 - 2.0 (history) - 3.0 (technical) = 5.0
-    # SOLUSDT score: 10.0 (no history, sentiment, or tech changes) = 10.0
+    # New scoring: cap per-record to ±5.0, average across records, then apply sentiment + tech
+    # BTCUSDT: 10.0 + avg([min(5.0,5.0)]) + 0.5 (sentiment) + 3.0 (tech) = 18.5
+    # ETHUSDT: 10.0 + avg([max(-5.0,-2.0)]) - 3.0 (tech) = 5.0
+    # SOLUSDT: 10.0 (no adjustments) = 10.0
     assert scores["BTCUSDT"] == 18.5
     assert scores["ETHUSDT"] == 5.0
     assert scores["SOLUSDT"] == 10.0

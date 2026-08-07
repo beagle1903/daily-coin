@@ -1,7 +1,8 @@
-import feedparser
-import time
-import re
 import asyncio
+import re
+import time
+
+import feedparser
 
 try:
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
