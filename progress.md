@@ -133,6 +133,9 @@
 - **Standardized Logging:** Replaced raw `sys.stderr` `print` calls with standard `logging.warning()` statements.
 - **Expanded Unit Testing:** Added edge case unit tests in `test_logic.py`, expanding the test suite to 43/43 passing tests.
 
+### Skill Management (Current Session)
+- **Repo Skills Mirror:** Created `skills/run/SKILL.md` and `skills/run-fe/SKILL.md` in the repository root directory to ensure skills are checked into the repo alongside `.agents/skills`.
+
 ## Next Steps
 - Revisit optional P1 security items (e.g. API key authentication & `slowapi` rate limiting).
 - Implement database storage / ORM for multi-user tracking.
