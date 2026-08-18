@@ -136,6 +136,12 @@
 ### Skill Management (Current Session)
 - **Repo Skills Mirror:** Created `skills/run/SKILL.md` and `skills/run-fe/SKILL.md` in the repository root directory to ensure skills are checked into the repo alongside `.agents/skills`.
 
+### Local Docker workspace (Windows 11 + Docker Desktop)
+- Added `Dockerfile`, `compose.yaml`, `.devcontainer/devcontainer.json`, and `docs/local-docker.md`.
+- `docker compose up --build` starts the API (`8000`) and Vite (`5173`) in one Linux container, with host port publishing (same ports as the cloud agent).
+- Pinned `pydantic` to `2.13.4` so image builds succeed (`2.48.0` is not on PyPI).
+- Vite watches with polling when `CHOKIDAR_USEPOLLING=true` so Windows bind mounts pick up edits.
+
 ## Next Steps
 - Revisit optional P1 security items (e.g. API key authentication & `slowapi` rate limiting).
 - Implement database storage / ORM for multi-user tracking.

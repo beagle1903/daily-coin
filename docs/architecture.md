@@ -24,3 +24,4 @@
 - **Run the CLI Application:** `.\venv\Scripts\python.exe main.py run` (or `python main.py run` after activating venv)
 - **Run the History Command:** `.\venv\Scripts\python.exe main.py history`
 - **Run Tests:** `.\venv\Scripts\python.exe -m pytest`
+- **Docker Desktop (Windows 11):** `docker compose up --build` — API `http://localhost:8000`, frontend `http://localhost:5173`. See `docs/local-docker.md`.
