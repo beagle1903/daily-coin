@@ -4,8 +4,9 @@ import os
 from filelock import FileLock
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from constants import PORTFOLIO_COUNT_MAX
 from history import load_history
 from portfolio_service import generate_portfolio as run_portfolio_generation
 
@@ -23,8 +24,8 @@ app.add_middleware(
 SETTINGS_FILE = "settings.json"
 
 class SettingsModel(BaseModel):
-    stable_count: int
-    volatile_count: int
+    stable_count: int = Field(gt=0, le=PORTFOLIO_COUNT_MAX)
+    volatile_count: int = Field(gt=0, le=PORTFOLIO_COUNT_MAX)
     variance_percentile: float = 33.3
 
 def load_settings_sync() -> SettingsModel:
@@ -75,8 +76,12 @@ async def get_portfolio_history():
 
 @app.get("/api/portfolio/generate")
 async def generate_portfolio(
-    stable: int = Query(None, description="Number of stable coins to pick"),
-    volatile: int = Query(None, description="Number of volatile coins to pick")
+    stable: int | None = Query(
+        default=None, gt=0, le=PORTFOLIO_COUNT_MAX, description="Number of stable coins to pick"
+    ),
+    volatile: int | None = Query(
+        default=None, gt=0, le=PORTFOLIO_COUNT_MAX, description="Number of volatile coins to pick"
+    ),
 ):
     """
     Evaluates past portfolios, fetches latest news/sentiment, calculates heuristic scores,
