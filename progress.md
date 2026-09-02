@@ -136,6 +136,11 @@
 ### Skill Management (Current Session)
 - **Repo Skills Mirror:** Created `skills/run/SKILL.md` and `skills/run-fe/SKILL.md` in the repository root directory to ensure skills are checked into the repo alongside `.agents/skills`.
 
+### GitHub Actions CI (Current Session)
+- Added `.github/workflows/ci.yml` to run ruff and pytest on PRs and pushes to main.
+- Pinned ruff in requirements.txt and added a minimal pyproject.toml lint config.
+- Removed unused imports/locals that ruff F401/F841 flagged; pinned pydantic/httpx so CI install succeeds.
+
 ## Next Steps
 - Revisit optional P1 security items (e.g. API key authentication & `slowapi` rate limiting).
 - Implement database storage / ORM for multi-user tracking.
