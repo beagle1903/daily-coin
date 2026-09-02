@@ -1,16 +1,27 @@
 import asyncio
+import hmac
 import json
 import os
 from filelock import FileLock
-from fastapi import FastAPI, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Security, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIASGIMiddleware
+from slowapi.util import get_remote_address
 
-from constants import PORTFOLIO_COUNT_MAX
+from config import get_daily_coin_api_key
+from constants import PORTFOLIO_COUNT_MAX, PORTFOLIO_GENERATE_RATE_LIMIT
 from history import load_history
 from portfolio_service import generate_portfolio as run_portfolio_generation
 
 app = FastAPI(title="Daily Coin API", description="API server for the Daily Coin portfolio selection and tracking system")
+limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIASGIMiddleware)
 
 # Enable CORS for frontend development
 app.add_middleware(
@@ -18,8 +29,19 @@ app.add_middleware(
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-API-Key"],
 )
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def require_api_key(api_key: str | None = Security(api_key_header)) -> None:
+    expected = get_daily_coin_api_key()
+    if not expected or not api_key or not hmac.compare_digest(api_key, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
 
 SETTINGS_FILE = "settings.json"
 
@@ -52,14 +74,14 @@ def save_settings_sync(settings: SettingsModel):
             json.dump(settings.model_dump(), f, indent=2)
         os.replace(temp_path, SETTINGS_FILE)
 
-@app.get("/api/settings", response_model=SettingsModel)
+@app.get("/api/settings", response_model=SettingsModel, dependencies=[Depends(require_api_key)])
 async def get_settings():
     """
     Returns current persistent settings.
     """
     return await asyncio.to_thread(load_settings_sync)
 
-@app.post("/api/settings", response_model=SettingsModel)
+@app.post("/api/settings", response_model=SettingsModel, dependencies=[Depends(require_api_key)])
 async def update_settings(settings: SettingsModel):
     """
     Updates and persists target stable and volatile coin counts.
@@ -67,15 +89,17 @@ async def update_settings(settings: SettingsModel):
     await asyncio.to_thread(save_settings_sync, settings)
     return settings
 
-@app.get("/api/history")
+@app.get("/api/history", dependencies=[Depends(require_api_key)])
 async def get_portfolio_history():
     """
     Returns the complete list of past portfolios and their evaluation results.
     """
     return await asyncio.to_thread(load_history)
 
-@app.get("/api/portfolio/generate")
+@app.get("/api/portfolio/generate", dependencies=[Depends(require_api_key)])
+@limiter.limit(PORTFOLIO_GENERATE_RATE_LIMIT)
 async def generate_portfolio(
+    request: Request,
     stable: int | None = Query(
         default=None, gt=0, le=PORTFOLIO_COUNT_MAX, description="Number of stable coins to pick"
     ),

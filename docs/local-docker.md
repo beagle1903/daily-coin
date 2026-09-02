@@ -13,7 +13,7 @@ Clone the repo on the Linux filesystem when you can (`\\wsl$\Ubuntu\home\...`). 
 
 ```powershell
 cd path\to\daily-coin
-copy .env.example .env   # optional; add Binance keys if you have them
+copy .env.example .env   # optional; add Binance keys and DAILY_COIN_API_KEY / VITE_DAILY_COIN_API_KEY
 docker compose up --build
 ```
 
@@ -24,7 +24,7 @@ Then open:
 
 Stop with `Ctrl+C`, or `docker compose down`.
 
-The UI calls `http://127.0.0.1:8000/api` from your browser. That works because Compose publishes **both** 5173 and 8000 to the host.
+The UI calls `http://127.0.0.1:8000/api` from your browser and sends `X-API-Key` from `VITE_DAILY_COIN_API_KEY`. Set the same value as `DAILY_COIN_API_KEY` in `.env` so the API accepts dashboard requests. Compose passes `VITE_DAILY_COIN_API_KEY` from that host file (falling back to `DAILY_COIN_API_KEY` if unset). Anyone who can open the dashboard can read that key from the client bundle; it is not a per-user secret.
 
 ## CLI inside the container
 
@@ -51,4 +51,4 @@ Dev Containers override the Compose `command`, so servers do not start automatic
 
 - Cursor Cloud MCP and the agent desktop
 - Automatic Binance access (geo blocks still apply; the app falls back to mock market data)
-- Your local `.env` (keep secrets on the host; Compose does not require the file)
+- Your local `.env` (keep secrets on the host; set `DAILY_COIN_API_KEY` and `VITE_DAILY_COIN_API_KEY` for the dashboard)

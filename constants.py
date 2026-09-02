@@ -15,6 +15,9 @@ MACD_SIGNAL = 9
 # Portfolio size bounds (API query params and settings)
 PORTFOLIO_COUNT_MAX = 50
 
+# API rate limits
+PORTFOLIO_GENERATE_RATE_LIMIT = "10/minute"
+
 # Scoring Parameters
 SCORE_FLOOR = 1.0
 SCORE_CEILING = 30.0
