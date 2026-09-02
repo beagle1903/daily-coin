@@ -83,8 +83,6 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
 
     # Display recommended portfolio
     portfolio_items = result["portfolio"]
-    scores = result.get("scores", {})
-    prices = result.get("prices", {})
 
     p_table = Table(title="Recommended Portfolio")
     p_table.add_column("Coin", style="magenta")

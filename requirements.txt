@@ -1,7 +1,8 @@
 typer==0.27.1
 rich
 pytest==9.1.1
-pydantic==2.48.0
+ruff==0.12.12
+pydantic==2.13.4
 python-binance==1.0.37
 python-dotenv
 feedparser==6.0.14
@@ -10,3 +11,4 @@ fastapi==0.141.1
 uvicorn==0.52.1
 filelock==3.17.0
 numpy==2.2.3
+httpx2==2.10.0

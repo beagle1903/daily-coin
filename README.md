@@ -7,6 +7,16 @@ A Python CLI application for generating a daily crypto portfolio of 5 coins (3 v
 - **News Sentiment Analysis**: Pulls the latest crypto headlines via RSS, processes them using VADER NLP, and dynamically bumps or drops a coin's heuristic score based on bullish/bearish news.
 - **State Rotation**: Automatically maintains a 30-day TTL history of past portfolios.
 
+## Local Docker (Windows 11 + Docker Desktop)
+
+One Linux container with the same ports as the cloud workspace (Vite `5173`, API `8000`):
+
+```powershell
+docker compose up --build
+```
+
+Open [http://localhost:5173](http://localhost:5173). Full steps: [docs/local-docker.md](docs/local-docker.md).
+
 ## Setup
 Run the setup script to create a virtual environment and install dependencies:
 ```bash
