@@ -1,0 +1,19 @@
+{
+  "name": "Daily Coin",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "./venv/bin/python main.py serve"
+    },
+    {
+      "name": "frontend",
+      "command": "npm run dev --prefix frontend -- --host"
+    }
+  ],
+  "ports": [
+    { "name": "frontend", "port": 5173 },
+    { "name": "backend", "port": 8000 }
+  ]
+}
