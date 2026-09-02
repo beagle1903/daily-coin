@@ -165,3 +165,31 @@ def test_generate_portfolio_uses_settings_fallback():
         assert response.status_code == 200
         # Should use the settings values
         mock_gen.assert_called_once_with(stable_count=5, volatile_count=8, variance_percentile=33.3)
+
+
+def test_generate_portfolio_rejects_zero_stable():
+    response = client.get("/api/portfolio/generate?stable=0&volatile=4")
+    assert response.status_code == 422
+
+
+def test_generate_portfolio_rejects_negative_volatile():
+    response = client.get("/api/portfolio/generate?stable=2&volatile=-1")
+    assert response.status_code == 422
+
+
+def test_generate_portfolio_rejects_stable_above_max():
+    response = client.get("/api/portfolio/generate?stable=51&volatile=4")
+    assert response.status_code == 422
+
+
+def test_generate_portfolio_rejects_volatile_above_max():
+    response = client.get("/api/portfolio/generate?stable=2&volatile=51")
+    assert response.status_code == 422
+
+
+def test_update_settings_rejects_out_of_range_counts():
+    response = client.post(
+        "/api/settings",
+        json={"stable_count": 0, "volatile_count": 51},
+    )
+    assert response.status_code == 422

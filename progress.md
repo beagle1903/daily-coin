@@ -13,4 +13,4 @@
 See GitHub Issues. Do not use `tasks.json`.
 
 ## Last session
-On PR #16 (`issue-9-docs`): merged `main` so the documented ruff/CI commands match the tree (`ruff` in `requirements.txt`, `.github/workflows/ci.yml` from #14). Kept both the lint command and the Docker command in `docs/architecture.md`.
+Opened PR for #12 (`issue-12-bound-portfolio-query-params`): bound `/api/portfolio/generate` query params and `SettingsModel` counts (`gt=0`, `le=PORTFOLIO_COUNT_MAX` = 50). Tests cover rejected out-of-range values. Auth and rate limiting remain #11.
