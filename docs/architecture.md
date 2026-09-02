@@ -34,3 +34,4 @@
 - **Run the Frontend:** `npm run dev` in `frontend/`
 - **Run Tests:** `.\venv\Scripts\python.exe -m pytest`
 - **Lint:** `.\venv\Scripts\python.exe -m ruff check .`
+- **Docker Desktop (Windows 11):** `docker compose up --build` — API `http://localhost:8000`, frontend `http://localhost:5173`. See `docs/local-docker.md`.

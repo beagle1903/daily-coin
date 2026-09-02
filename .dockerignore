@@ -1,0 +1,12 @@
+.git
+.gitignore
+venv
+**/__pycache__
+**/.pytest_cache
+**/.coverage
+frontend/node_modules
+*.json.lock
+history.json
+.env
+reviews
+.cursor

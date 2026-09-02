@@ -2,7 +2,6 @@ import asyncio
 import time
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from news import analyze_news_impact, get_latest_news
 

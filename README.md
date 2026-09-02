@@ -8,6 +8,16 @@ A Python CLI (with an optional web dashboard) that generates a cryptocurrency po
 - **State Rotation**: Automatically maintains a 30-day TTL history of past portfolios.
 - **Web dashboard**: FastAPI backend plus a Vite + React UI in `frontend/`.
 
+## Local Docker (Windows 11 + Docker Desktop)
+
+One Linux container with the same ports as the cloud workspace (Vite `5173`, API `8000`):
+
+```powershell
+docker compose up --build
+```
+
+Open [http://localhost:5173](http://localhost:5173). Full steps: [docs/local-docker.md](docs/local-docker.md).
+
 ## Setup
 Run the setup script to create a virtual environment and install dependencies:
 ```bash

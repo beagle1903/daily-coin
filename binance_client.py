@@ -1,8 +1,6 @@
 import asyncio
 import json
-import math
 import os
-import sys
 import logging
 import time as _time
 
@@ -10,7 +8,6 @@ import numpy as np
 
 from binance import AsyncClient
 from binance.client import Client
-from binance.exceptions import BinanceAPIException
 
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 from constants import (
