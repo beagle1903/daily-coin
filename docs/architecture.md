@@ -18,7 +18,7 @@
 - `news.py`: Fetches RSS feeds from top crypto outlets, parses headlines, and executes VADER sentiment analysis to provide heuristic modifiers.
 - `constants.py`: Centralized tunable parameters (cache TTLs, indicator periods, score caps, VADER settings, portfolio count max).
 - `server.py`: FastAPI REST endpoints for settings, history, and portfolio generation. `/api/*` routes require an `X-API-Key` header matching `DAILY_COIN_API_KEY`. `stable`/`volatile` query params and settings counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`). `/api/portfolio/generate` is rate-limited (`PORTFOLIO_GENERATE_RATE_LIMIT`).
-- `frontend/`: Vite + React dashboard for portfolio suggestions, history, and news sentiment.
+- `frontend/`: Vite + React dashboard for portfolio suggestions, history, and news sentiment. It sends `VITE_DAILY_COIN_API_KEY` as `X-API-Key`. That Vite value is in the client bundle, so dashboard users can recover it; this is shared local-API protection, not per-user auth.
 - `tests/`: Pytest suite for calculations, CLI, news, and API.
 
 ## Design Patterns

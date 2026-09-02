@@ -41,6 +41,8 @@ VITE_DAILY_COIN_API_KEY=your_local_api_key
 
 The FastAPI server requires the `X-API-Key` header on `/api/*` routes. `/api/portfolio/generate` is limited to 10 requests per minute. The CLI (`python main.py run`) does not use this key.
 
+`VITE_DAILY_COIN_API_KEY` is compiled into the dashboard JavaScript, so anyone who can load the UI can also call the API with that key. The key is meant to block callers who do not have the dashboard (for example a raw request to port 8000). It is not a per-user login.
+
 ## Running the CLI
 ```bash
 # On Windows:

@@ -24,7 +24,7 @@ Then open:
 
 Stop with `Ctrl+C`, or `docker compose down`.
 
-The UI calls `http://127.0.0.1:8000/api` from your browser and sends `X-API-Key` from `VITE_DAILY_COIN_API_KEY`. Set the same value as `DAILY_COIN_API_KEY` in `.env` so the API accepts dashboard requests. Compose passes `VITE_DAILY_COIN_API_KEY` from that host file (falling back to `DAILY_COIN_API_KEY` if unset).
+The UI calls `http://127.0.0.1:8000/api` from your browser and sends `X-API-Key` from `VITE_DAILY_COIN_API_KEY`. Set the same value as `DAILY_COIN_API_KEY` in `.env` so the API accepts dashboard requests. Compose passes `VITE_DAILY_COIN_API_KEY` from that host file (falling back to `DAILY_COIN_API_KEY` if unset). Anyone who can open the dashboard can read that key from the client bundle; it is not a per-user secret.
 
 ## CLI inside the container
 
