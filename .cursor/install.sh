@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 # The default image ships python3 but may omit the venv/ensurepip module.
 if ! python3 -c "import ensurepip" >/dev/null 2>&1; then
   sudo apt-get update
-  sudo apt-get install -y --no-install-recommends python3-venv python3.12-venv
+  sudo apt-get install -y --no-install-recommends python3-venv
 fi
 
 # Python backend + CLI dependencies inside a project-local virtualenv.
