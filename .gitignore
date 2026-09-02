@@ -5,3 +5,4 @@ __pycache__/
 .coverage
 history.json
 *.json.lock
+frontend/node_modules/

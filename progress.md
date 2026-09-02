@@ -136,6 +136,12 @@
 ### Skill Management (Current Session)
 - **Repo Skills Mirror:** Created `skills/run/SKILL.md` and `skills/run-fe/SKILL.md` in the repository root directory to ensure skills are checked into the repo alongside `.agents/skills`.
 
+### Local Docker workspace (Windows 11 + Docker Desktop)
+- Added `Dockerfile`, `compose.yaml`, `.devcontainer/devcontainer.json`, and `docs/local-docker.md`.
+- `docker compose up --build` starts the API (`8000`) and Vite (`5173`) in one Linux container, with host port publishing (same ports as the cloud agent).
+- Pinned `pydantic` to `2.13.4` so image builds succeed (`2.48.0` is not on PyPI).
+- Vite watches with polling when `CHOKIDAR_USEPOLLING=true` so Windows bind mounts pick up edits.
+
 ### Cloud Agent Environment Setup (Current Session)
 - **Repo-managed environment:** Added `.cursor/environment.json` and idempotent `.cursor/install.sh`. Install ensures `python3-venv` (falls back to `apt-get` on the default image), creates `venv`, installs `requirements.txt`, and runs `npm ci` in `frontend/`. Long-running `backend` (`main.py serve`) and `frontend` (`npm run dev`) terminals plus forwarded ports 8000/5173.
 - **Dependency fixes:** Corrected the fabricated `pydantic==2.48.0` pin (nonexistent; max published is 2.13.x) to `pydantic==2.13.4`, and added `httpx2==2.10.0` required by `starlette`'s `TestClient` so the server test suite collects. This unblocked `pytest` (43/43 passing).
