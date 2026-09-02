@@ -13,4 +13,4 @@
 See GitHub Issues. Do not use `tasks.json`.
 
 ## Last session
-Merged `main` into `issue-8-workflow` so the wait-for-CI rule in `AGENTS.md` is backed by the workflow from #14. Docker workspace stays ADR 005; GitHub Issues/PRs is ADR 006.
+On PR #16 (`issue-9-docs`): merged `main` so the documented ruff/CI commands match the tree (`ruff` in `requirements.txt`, `.github/workflows/ci.yml` from #14). Kept both the lint command and the Docker command in `docs/architecture.md`.
