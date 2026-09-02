@@ -1,12 +1,29 @@
 import json
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from server import app, SettingsModel
 
+TEST_API_KEY = "test-api-key"
+AUTH_HEADERS = {"X-API-Key": TEST_API_KEY}
 
-client = TestClient(app)
+client = TestClient(app, headers=AUTH_HEADERS)
+
+
+@pytest.fixture(autouse=True)
+def configure_api_key(monkeypatch):
+    monkeypatch.setenv("DAILY_COIN_API_KEY", TEST_API_KEY)
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    from server import limiter
+
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 # --- Settings Endpoints ---
@@ -193,3 +210,52 @@ def test_update_settings_rejects_out_of_range_counts():
         json={"stable_count": 0, "volatile_count": 51},
     )
     assert response.status_code == 422
+
+
+# --- API key authentication ---
+
+def test_settings_rejects_missing_api_key():
+    bare = TestClient(app)
+    response = bare.get("/api/settings")
+    assert response.status_code == 401
+
+
+def test_settings_rejects_wrong_api_key():
+    response = TestClient(app).get("/api/settings", headers={"X-API-Key": "wrong-key"})
+    assert response.status_code == 401
+
+
+def test_generate_rejects_missing_api_key():
+    bare = TestClient(app)
+    response = bare.get("/api/portfolio/generate")
+    assert response.status_code == 401
+
+
+def test_rejects_when_api_key_not_configured(monkeypatch):
+    monkeypatch.delenv("DAILY_COIN_API_KEY", raising=False)
+    response = TestClient(app).get("/api/settings", headers=AUTH_HEADERS)
+    assert response.status_code == 401
+
+
+# --- Rate limiting ---
+
+def test_generate_portfolio_rate_limited():
+    mock_result = {
+        "evaluation_results": [],
+        "news": [],
+        "sentiment_impacts": [],
+        "portfolio": [],
+        "scores": {},
+        "prices": {},
+        "final_stable": [],
+        "final_volatile": [],
+        "market_data": {},
+    }
+    with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
+         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+        statuses = [
+            client.get("/api/portfolio/generate").status_code
+            for _ in range(11)
+        ]
+    assert statuses[-1] == 429
+    assert 200 in statuses

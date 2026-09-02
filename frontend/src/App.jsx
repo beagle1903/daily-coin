@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 
+const API_BASE = 'http://127.0.0.1:8000/api'
+
+function apiHeaders(extra = {}) {
+  return {
+    'X-API-Key': import.meta.env.VITE_DAILY_COIN_API_KEY || '',
+    ...extra,
+  }
+}
+
+function errorMessageForStatus(status, fallback) {
+  if (status === 401) return 'Unauthorized: missing or invalid API key.'
+  if (status === 429) return 'Too many portfolio requests. Try again in a minute.'
+  return fallback
+}
+
 function App() {
   const [loading, setLoading] = useState(false)
   const [portfolio, setPortfolio] = useState([])
@@ -10,13 +25,11 @@ function App() {
   const [volatileCount, setVolatileCount] = useState(6)
   const [error, setError] = useState(null)
 
-  const API_BASE = 'http://127.0.0.1:8000/api'
-
   // Fetch settings on mount
   const fetchSettings = async () => {
     try {
-      const res = await fetch(`${API_BASE}/settings`)
-      if (!res.ok) throw new Error('Failed to fetch settings')
+      const res = await fetch(`${API_BASE}/settings`, { headers: apiHeaders() })
+      if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to fetch settings'))
       const data = await res.json()
       setStableCount(data.stable_count)
       setVolatileCount(data.volatile_count)
@@ -30,8 +43,8 @@ function App() {
   // Fetch history list
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/history`)
-      if (!res.ok) throw new Error('Failed to fetch history')
+      const res = await fetch(`${API_BASE}/history`, { headers: apiHeaders() })
+      if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to fetch history'))
       const data = await res.json()
       setHistory(data.sort((a, b) => b.timestamp - a.timestamp))
     } catch (err) {
@@ -45,15 +58,20 @@ function App() {
     setError(null)
     try {
       // 1. Save settings to the server
-      await fetch(`${API_BASE}/settings`, {
+      const settingsRes = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ stable_count: stableCount, volatile_count: volatileCount })
       })
+      if (!settingsRes.ok) {
+        throw new Error(errorMessageForStatus(settingsRes.status, 'Failed to save settings'))
+      }
 
       // 2. Fetch the recommendations
-      const res = await fetch(`${API_BASE}/portfolio/generate?stable=${stableCount}&volatile=${volatileCount}`)
-      if (!res.ok) throw new Error('Failed to generate portfolio. Make sure backend is running.')
+      const res = await fetch(`${API_BASE}/portfolio/generate?stable=${stableCount}&volatile=${volatileCount}`, {
+        headers: apiHeaders(),
+      })
+      if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to generate portfolio. Make sure backend is running.'))
       const data = await res.json()
       if (data.error) {
         setError(data.error)

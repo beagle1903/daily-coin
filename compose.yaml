@@ -18,6 +18,8 @@ services:
       WATCHPACK_POLLING: "true"
       BINANCE_API_KEY: ${BINANCE_API_KEY:-}
       BINANCE_API_SECRET: ${BINANCE_API_SECRET:-}
+      DAILY_COIN_API_KEY: ${DAILY_COIN_API_KEY:-}
+      VITE_DAILY_COIN_API_KEY: ${VITE_DAILY_COIN_API_KEY:-${DAILY_COIN_API_KEY:-}}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     stdin_open: true
