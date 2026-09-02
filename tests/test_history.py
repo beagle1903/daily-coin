@@ -1,5 +1,4 @@
 import time
-import pytest
 
 from history import load_history, save_history, clean_old_history_in_memory, _default_repo
 

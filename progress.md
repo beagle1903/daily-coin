@@ -136,6 +136,11 @@
 ### Skill Management (Current Session)
 - **Repo Skills Mirror:** Created `skills/run/SKILL.md` and `skills/run-fe/SKILL.md` in the repository root directory to ensure skills are checked into the repo alongside `.agents/skills`.
 
+### GitHub Actions CI (Current Session)
+- Added `.github/workflows/ci.yml` to run ruff and pytest on PRs and pushes to main.
+- Pinned ruff in requirements.txt and added a minimal pyproject.toml lint config.
+- Removed unused imports/locals that ruff F401/F841 flagged; pinned pydantic/httpx so CI install succeeds.
+
 ### Local Docker workspace (Windows 11 + Docker Desktop)
 - Added `Dockerfile`, `compose.yaml`, `.devcontainer/devcontainer.json`, and `docs/local-docker.md`.
 - `docker compose up --build` starts the API (`8000`) and Vite (`5173`) in one Linux container, with host port publishing (same ports as the cloud agent).
