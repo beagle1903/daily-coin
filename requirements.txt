@@ -10,3 +10,4 @@ fastapi==0.141.1
 uvicorn==0.52.1
 filelock==3.17.0
 numpy==2.2.3
+httpx2==2.10.0

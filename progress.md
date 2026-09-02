@@ -142,6 +142,11 @@
 - Pinned `pydantic` to `2.13.4` so image builds succeed (`2.48.0` is not on PyPI).
 - Vite watches with polling when `CHOKIDAR_USEPOLLING=true` so Windows bind mounts pick up edits.
 
+### Cloud Agent Environment Setup (Current Session)
+- **Repo-managed environment:** Added `.cursor/environment.json` and idempotent `.cursor/install.sh`. Install ensures `python3-venv` (falls back to `apt-get` on the default image), creates `venv`, installs `requirements.txt`, and runs `npm ci` in `frontend/`. Long-running `backend` (`main.py serve`) and `frontend` (`npm run dev`) terminals plus forwarded ports 8000/5173.
+- **Dependency fixes:** Corrected the fabricated `pydantic==2.48.0` pin (nonexistent; max published is 2.13.x) to `pydantic==2.13.4`, and added `httpx2==2.10.0` required by `starlette`'s `TestClient` so the server test suite collects. This unblocked `pytest` (43/43 passing).
+- **Validation:** Install verified idempotent; CLI + API + web UI exercised end-to-end (Binance gracefully falls back to mock prices, live RSS news works). Two draft environment builds succeeded — one from a snapshot base and one from the bare default image (exercising the `apt` fallback) — and a fresh Cloud Agent booted from a build passed all checks.
+
 ## Next Steps
 - Revisit optional P1 security items (e.g. API key authentication & `slowapi` rate limiting).
 - Implement database storage / ORM for multi-user tracking.
