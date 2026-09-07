@@ -4,13 +4,14 @@ Eliminates code duplication and ensures a single history load per run.
 """
 import asyncio
 
+from constants import DEFAULT_VARIANCE_PERCENTILE, NEWS_LIMIT
 from binance_client import fetch_all_market_data, get_current_prices, get_tradeable_symbols
 from history import add_portfolio_record, get_unevaluated_records, load_history, save_history
 from logic import evaluate_performance, load_coin_scores, pick_portfolio
 from news import analyze_news_impact, get_latest_news
 
 
-async def generate_portfolio(stable_count: int, volatile_count: int, variance_percentile: float = 33.3):
+async def generate_portfolio(stable_count: int, volatile_count: int, variance_percentile: float = DEFAULT_VARIANCE_PERCENTILE):
     """
     Full portfolio generation pipeline:
     1. Load history once
@@ -46,7 +47,7 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
         history = updated_history
 
     # 3. Fetch news and market data concurrently
-    news_task = get_latest_news(limit=5)
+    news_task = get_latest_news(limit=NEWS_LIMIT)
     market_data_task = fetch_all_market_data(valid_symbols)
 
     news_items, market_data = await asyncio.gather(news_task, market_data_task)

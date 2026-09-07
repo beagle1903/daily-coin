@@ -13,7 +13,7 @@ from slowapi.middleware import SlowAPIASGIMiddleware
 from slowapi.util import get_remote_address
 
 from config import get_daily_coin_api_key
-from constants import PORTFOLIO_COUNT_MAX, PORTFOLIO_GENERATE_RATE_LIMIT
+from constants import PORTFOLIO_COUNT_MAX, PORTFOLIO_GENERATE_RATE_LIMIT, DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT, DEFAULT_VARIANCE_PERCENTILE
 from history import load_history
 from portfolio_service import generate_portfolio as run_portfolio_generation
 
@@ -48,7 +48,7 @@ SETTINGS_FILE = "settings.json"
 class SettingsModel(BaseModel):
     stable_count: int = Field(gt=0, le=PORTFOLIO_COUNT_MAX)
     volatile_count: int = Field(gt=0, le=PORTFOLIO_COUNT_MAX)
-    variance_percentile: float = 33.3
+    variance_percentile: float = DEFAULT_VARIANCE_PERCENTILE
 
 def load_settings_sync() -> SettingsModel:
     lock_path = f"{SETTINGS_FILE}.lock"
@@ -58,13 +58,17 @@ def load_settings_sync() -> SettingsModel:
                 with open(SETTINGS_FILE, "r") as f:
                     data = json.load(f)
                     return SettingsModel(
-                        stable_count=data.get("stable_count", 3),
-                        volatile_count=data.get("volatile_count", 6),
-                        variance_percentile=data.get("variance_percentile", 33.3)
+                        stable_count=data.get("stable_count", DEFAULT_STABLE_COUNT),
+                        volatile_count=data.get("volatile_count", DEFAULT_VOLATILE_COUNT),
+                        variance_percentile=data.get("variance_percentile", DEFAULT_VARIANCE_PERCENTILE)
                     )
             except Exception:
                 pass
-    return SettingsModel(stable_count=3, volatile_count=6, variance_percentile=33.3)
+    return SettingsModel(
+        stable_count=DEFAULT_STABLE_COUNT,
+        volatile_count=DEFAULT_VOLATILE_COUNT,
+        variance_percentile=DEFAULT_VARIANCE_PERCENTILE,
+    )
 
 def save_settings_sync(settings: SettingsModel):
     lock_path = f"{SETTINGS_FILE}.lock"

@@ -212,6 +212,18 @@ def test_update_settings_rejects_out_of_range_counts():
     assert response.status_code == 422
 
 
+def test_cors_allows_only_get_and_post():
+    from server import app as fastapi_app
+
+    cors = next(
+        m for m in fastapi_app.user_middleware
+        if m.cls.__name__ == "CORSMiddleware"
+    )
+    assert set(cors.kwargs["allow_methods"]) == {"GET", "POST"}
+    assert "*" not in cors.kwargs["allow_headers"]
+    assert "X-API-Key" in cors.kwargs["allow_headers"]
+
+
 # --- API key authentication ---
 
 def test_settings_rejects_missing_api_key():

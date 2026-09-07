@@ -1,7 +1,28 @@
 # Code Review Summary: daily-coin
 
 **Date:** 2026-08-07  
+**Re-verified:** 2026-09-07 (see P2 status below)  
 **Reviewers:** Security, Architecture, Test Coverage, Performance, Business Logic
+
+---
+
+## P2 verification (2026-09-07)
+
+Narrow audit against `main`. Items 17–27 were already implemented except phrase-level news matching, silent batch-ticker fallback, `print` in `config.py`, and a missing empty-stable `pick_portfolio` test. Closed in #24. Numpy/`ta` rewrite of RSI/MACD loops is **wont-do** (numpy is already used; Wilder smoothing remains a short loop).
+
+| # | Item | Status |
+|---|------|--------|
+| 17 | Restrict CORS methods/headers | Done (localhost origins, GET/POST, explicit headers) |
+| 18 | `logging` instead of `print` for API errors | Done (`binance_client`, `config.py`) |
+| 19 | Recursive mock fallback | Done (circuit breaker + explicit mock branch) |
+| 20 | Centralize magic numbers | Done (`constants.py`; defaults expanded in #24) |
+| 21 | VADER threshold 0.25 + crypto lexicon | Done |
+| 22 | Average sentiment per coin | Done |
+| 23 | Dynamic keywords + compound names | Done (`build_keyword_map` + phrase aliases) |
+| 24 | No `get_all_tickers()` fallback | Done (per-symbol ticker; batch failure is logged) |
+| 25 | Vectorize RSI/MACD/variance | Partial / wont-do further (`numpy` std/RSI diffs; no `ta` library) |
+| 26 | `logic.py` empty-universe edge tests | Done (including empty stable sleeve) |
+| 27 | Presentation vs `portfolio_service` | Done |
 
 ---
 

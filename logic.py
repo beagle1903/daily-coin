@@ -1,6 +1,6 @@
 import random
 
-from constants import SCORE_FLOOR, SCORE_CEILING, MAX_PER_RECORD_ADJUSTMENT, INITIAL_SCORE
+from constants import SCORE_FLOOR, SCORE_CEILING, MAX_PER_RECORD_ADJUSTMENT, INITIAL_SCORE, DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT
 
 
 def load_coin_scores(universe, history, sentiment_impacts=None, technical_indicators=None):
@@ -58,7 +58,7 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
                         
     return scores
 
-def pick_portfolio(available_stable, available_volatile, scores, stable_count=3, volatile_count=6):
+def pick_portfolio(available_stable, available_volatile, scores, stable_count=DEFAULT_STABLE_COUNT, volatile_count=DEFAULT_VOLATILE_COUNT):
     """
     Pure function that selects stable and volatile picks based on scores.
     
