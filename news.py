@@ -4,7 +4,7 @@ import time
 
 import feedparser
 
-from constants import VADER_THRESHOLD, VADER_MULTIPLIER, VADER_CRYPTO_LEXICON
+from constants import NEWS_LIMIT, VADER_THRESHOLD, VADER_MULTIPLIER, VADER_CRYPTO_LEXICON
 
 _ANALYZER_INSTANCE = None
 _ANALYZER_INITIALIZED = False
@@ -26,26 +26,33 @@ RSS_FEEDS = [
     "https://www.coindesk.com/arc/outboundfeeds/rss/"
 ]
 
+# Longer phrases first at match time so "dog wif hat" wins over stray short tokens.
+_NAME_ALIASES = {
+    "bitcoin": "BTCUSDT",
+    "ethereum": "ETHUSDT",
+    "binance coin": "BNBUSDT",
+    "binance": "BNBUSDT",
+    "cardano": "ADAUSDT",
+    "ripple": "XRPUSDT",
+    "solana": "SOLUSDT",
+    "chainlink": "LINKUSDT",
+    "avalanche": "AVAXUSDT",
+    "uniswap": "UNIUSDT",
+    "polkadot": "DOTUSDT",
+    "litecoin": "LTCUSDT",
+    "polygon": "MATICUSDT",
+    "cosmos": "ATOMUSDT",
+    "dogecoin": "DOGEUSDT",
+    "dog wif hat": "WIFUSDT",
+    "dogwifhat": "WIFUSDT",
+    "shiba inu": "SHIBUSDT",
+    "shiba": "SHIBUSDT",
+}
+
+
 def build_keyword_map(tradeable_symbols):
     """Dynamically builds a keyword map from tradeable symbols list."""
-    keyword_map = {
-        "bitcoin": "BTCUSDT",
-        "ethereum": "ETHUSDT",
-        "binance": "BNBUSDT",
-        "cardano": "ADAUSDT",
-        "ripple": "XRPUSDT",
-        "solana": "SOLUSDT",
-        "chainlink": "LINKUSDT",
-        "avalanche": "AVAXUSDT",
-        "uniswap": "UNIUSDT",
-        "polkadot": "DOTUSDT",
-        "litecoin": "LTCUSDT",
-        "polygon": "MATICUSDT",
-        "cosmos": "ATOMUSDT",
-        "dogecoin": "DOGEUSDT",
-        "dogwifhat": "WIFUSDT",
-        "shiba": "SHIBUSDT"
-    }
+    keyword_map = dict(_NAME_ALIASES)
     
     if tradeable_symbols:
         for symbol in tradeable_symbols:
@@ -54,7 +61,7 @@ def build_keyword_map(tradeable_symbols):
             
     return keyword_map
 
-async def get_latest_news(limit=5):
+async def get_latest_news(limit=NEWS_LIMIT):
     # Run the blocking feedparser.parse calls concurrently in background threads
     tasks = [asyncio.to_thread(feedparser.parse, url) for url in RSS_FEEDS]
     feeds = await asyncio.gather(*tasks, return_exceptions=True)
@@ -102,12 +109,11 @@ def analyze_news_impact(articles, tradeable_symbols=None):
     
     for article in articles:
         headline = article.get("title", "")
-        words = re.findall(r'\b\w+\b', headline.lower())
-        
+        headline_lower = headline.lower()
         found_symbols = set()
-        for word in words:
-            if word in keyword_map:
-                found_symbols.add(keyword_map[word])
+        for keyword, symbol in sorted(keyword_map.items(), key=lambda item: len(item[0]), reverse=True):
+            if re.search(r"\b" + re.escape(keyword) + r"\b", headline_lower):
+                found_symbols.add(symbol)
                 
         if found_symbols:
             sentiment = analyzer.polarity_scores(headline)

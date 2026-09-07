@@ -12,7 +12,8 @@ from binance.client import Client
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 from constants import (
     SEMAPHORE_LIMIT, SYMBOLS_CACHE_TTL, MARKET_DATA_CACHE_TTL,
-    MOCK_CIRCUIT_BREAKER_SECONDS, RSI_PERIOD, MACD_FAST, MACD_SLOW, MACD_SIGNAL
+    MOCK_CIRCUIT_BREAKER_SECONDS, RSI_PERIOD, MACD_FAST, MACD_SLOW, MACD_SIGNAL,
+    STABLECOIN_EXCLUDED_BASES,
 )
 
 _client = None
@@ -92,10 +93,9 @@ def get_tradeable_symbols(limit=30):
         if client is not None:
             try:
                 tickers = client.get_ticker()
-                excluded_bases = {"USDC", "FDUSD", "TUSD", "BUSD", "USD1", "EUR", "DAI", "USDD", "PYUSD", "USDP", "AEUR"}
                 usdt_pairs = [
                     t for t in tickers 
-                    if t['symbol'].endswith('USDT') and t['symbol'][:-4] not in excluded_bases
+                    if t['symbol'].endswith('USDT') and t['symbol'][:-4] not in STABLECOIN_EXCLUDED_BASES
                     and (allowlist is None or t['symbol'][:-4] in allowlist)
                 ]
                 usdt_pairs.sort(key=lambda x: float(x['quoteVolume']), reverse=True)
@@ -131,7 +131,12 @@ def get_current_prices(symbols):
                 elif isinstance(res, dict):
                     return {res['symbol']: float(res['price'])}
                 return {}
-            except Exception:
+            except Exception as e:
+                logging.warning(
+                    "Binance batch get_symbol_ticker failed (%s: %s); using per-symbol fallback",
+                    type(e).__name__,
+                    e,
+                )
                 try:
                     # Targeted fallback instead of get_all_tickers()
                     prices = {}

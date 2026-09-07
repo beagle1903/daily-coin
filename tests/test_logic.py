@@ -78,6 +78,14 @@ def test_pick_portfolio_empty():
     assert len(stable_picks) == 0
     assert len(volatile_picks) == 0
 
+
+def test_pick_portfolio_empty_stable_only():
+    scores = {"BTC": 10.0, "ETH": 8.0}
+    stable_picks, volatile_picks = pick_portfolio([], ["BTC", "ETH"], scores, stable_count=1, volatile_count=1)
+    assert stable_picks == []
+    assert len(volatile_picks) == 1
+    assert volatile_picks[0] in {"BTC", "ETH"}
+
 def test_load_coin_scores_empty_universe():
     scores = load_coin_scores([], [])
     assert scores == {}

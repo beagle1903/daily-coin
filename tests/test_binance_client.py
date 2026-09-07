@@ -37,6 +37,22 @@ def test_get_sync_client_mock_mode():
     with patch("binance_client._is_mock_mode_active", return_value=True):
         assert get_sync_client() is None
 
+def test_get_current_prices_targeted_fallback_when_batch_fails():
+    class FakeClient:
+        def get_symbol_ticker(self, symbols=None, symbol=None):
+            if symbols is not None:
+                raise RuntimeError("batch ticker failed")
+            return {"symbol": symbol, "price": "101.5"}
+
+    with patch("binance_client._is_mock_mode_active", return_value=False), \
+         patch("binance_client.get_sync_client", return_value=FakeClient()), \
+         patch("binance_client.logging.warning") as warn:
+        prices = get_current_prices(["BTCUSDT"])
+        assert prices == {"BTCUSDT": 101.5}
+        warn.assert_called_once()
+        assert "batch" in warn.call_args[0][0].lower()
+
+
 def test_get_current_prices_mock_mode():
     with patch("binance_client._is_mock_mode_active", return_value=True):
         prices = get_current_prices(["BTCUSDT"])

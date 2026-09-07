@@ -14,6 +14,15 @@ MACD_SIGNAL = 9
 
 # Portfolio size bounds (API query params and settings)
 PORTFOLIO_COUNT_MAX = 50
+DEFAULT_STABLE_COUNT = 3
+DEFAULT_VOLATILE_COUNT = 6
+DEFAULT_VARIANCE_PERCENTILE = 33.3
+NEWS_LIMIT = 5
+
+# Quote-stable pairs excluded from the tradeable USDT universe
+STABLECOIN_EXCLUDED_BASES = {
+    "USDC", "FDUSD", "TUSD", "BUSD", "USD1", "EUR", "DAI", "USDD", "PYUSD", "USDP", "AEUR",
+}
 
 # API rate limits
 PORTFOLIO_GENERATE_RATE_LIMIT = "10/minute"

@@ -10,13 +10,17 @@ if sys.platform == "win32":
         pass
 
 from datetime import datetime
+import logging
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
+from constants import DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT
 from history import load_history
 from portfolio_service import generate_portfolio
+
+logging.basicConfig(level=logging.WARNING)
 
 console = Console()
 app = typer.Typer()
@@ -103,8 +107,8 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
 
 @app.command(name="run")
 def run_portfolio(
-    stable: int = typer.Option(3, min=1, help="Number of stable coins to pick"),
-    volatile: int = typer.Option(6, min=1, help="Number of volatile coins to pick")
+    stable: int = typer.Option(DEFAULT_STABLE_COUNT, min=1, help="Number of stable coins to pick"),
+    volatile: int = typer.Option(DEFAULT_VOLATILE_COUNT, min=1, help="Number of volatile coins to pick")
 ):
     """
     Evaluates the previous portfolio (if any) and generates a new portfolio of coins.

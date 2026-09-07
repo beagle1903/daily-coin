@@ -3,7 +3,7 @@ import time
 from unittest.mock import MagicMock, patch
 
 
-from news import analyze_news_impact, get_latest_news
+from news import analyze_news_impact, build_keyword_map, get_latest_news
 
 
 class FakeFeedEntry:
@@ -126,6 +126,23 @@ def test_analyze_news_impact_multiple_coins():
 def test_analyze_news_impact_empty_articles():
     impacts = analyze_news_impact([])
     assert impacts == []
+
+
+def test_analyze_news_impact_multiword_alias():
+    """Compound names should map even without the tradeable-symbols list."""
+    mock_analyzer = MagicMock()
+    mock_analyzer.polarity_scores.return_value = {"compound": 0.9}
+    articles = [{"title": "Dog wif hat listed on a new venue"}]
+    with patch("news._get_analyzer", return_value=mock_analyzer):
+        impacts = analyze_news_impact(articles)
+    wif_impacts = [i for i in impacts if i["coin"] == "WIFUSDT"]
+    assert wif_impacts
+    assert wif_impacts[0]["sentiment"] == "Bullish"
+
+
+def test_build_keyword_map_includes_hyphenated_base():
+    keyword_map = build_keyword_map(["1000PEPEUSDT"])
+    assert keyword_map["1000pepe"] == "1000PEPEUSDT"
 
 
 def test_analyze_news_impact_no_analyzer():
