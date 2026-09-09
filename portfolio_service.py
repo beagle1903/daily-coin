@@ -71,7 +71,7 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     universe = available_stable + available_volatile
 
     # Use the already-loaded history (no redundant reload)
-    scores = load_coin_scores(universe, history, impacts, market_data)
+    scores, _breakdowns = load_coin_scores(universe, history, impacts, market_data)
 
     # 5. Pick portfolio
     stable_picks, volatile_picks = pick_portfolio(

@@ -6,15 +6,28 @@ from constants import SCORE_FLOOR, SCORE_CEILING, MAX_PER_RECORD_ADJUSTMENT, INI
 def load_coin_scores(universe, history, sentiment_impacts=None, technical_indicators=None):
     """
     Pure function that calculates heuristic scores for the coin universe.
-    
-    :param universe: List of coin symbols in the universe
-    :param history: List of historical portfolio records loaded from history.json
-    :param sentiment_impacts: List of sentiment impact dicts from news analysis
-    :param technical_indicators: Dict of symbol -> {"rsi": ..., "macd": ..., "signal": ...}
+
+    :return: (scores, breakdowns) where scores is dict[str, float] and
+             breakdowns is dict[str, dict] of intended score components.
     """
     scores = {coin: INITIAL_SCORE for coin in universe}
-    
-    # Adjust based on history: average adjustments across records, cap each
+    breakdowns = {
+        coin: {
+            "base": INITIAL_SCORE,
+            "history_adjustment": 0.0,
+            "news_adjustment": 0.0,
+            "news_headline": None,
+            "news_sentiment": None,
+            "rsi": 50.0,
+            "rsi_adjustment": 0.0,
+            "macd": 0.0,
+            "signal": 0.0,
+            "macd_adjustment": 0.0,
+            "score": INITIAL_SCORE,
+        }
+        for coin in universe
+    }
+
     coin_adjustments = {coin: [] for coin in universe}
     for record in history:
         if record.get("evaluated") and "performance" in record:
@@ -27,36 +40,54 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
     for coin, adjustments in coin_adjustments.items():
         if adjustments:
             avg_adjustment = sum(adjustments) / len(adjustments)
+            breakdowns[coin]["history_adjustment"] = avg_adjustment
             scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin] + avg_adjustment))
-                        
-    # Apply news sentiment impacts
+
     if sentiment_impacts:
         for impact in sentiment_impacts:
             coin = impact["coin"]
             if coin in scores:
+                breakdowns[coin]["news_adjustment"] += impact["adjustment"]
+                if "headline" in impact:
+                    breakdowns[coin]["news_headline"] = impact["headline"]
+                if "sentiment" in impact:
+                    breakdowns[coin]["news_sentiment"] = impact["sentiment"]
                 scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin] + impact["adjustment"]))
-                    
-    # Apply Technical Indicator modifiers
+
     if technical_indicators:
         for coin in scores:
             ti = technical_indicators.get(coin, {"rsi": 50.0, "macd": 0.0, "signal": 0.0})
             rsi = ti["rsi"]
             macd = ti["macd"]
             signal = ti["signal"]
-            
+            breakdowns[coin]["rsi"] = rsi
+            breakdowns[coin]["macd"] = macd
+            breakdowns[coin]["signal"] = signal
+
             if rsi < 30:
-                scores[coin] += 2.0
+                rsi_adj = 2.0
             elif rsi > 70:
-                scores[coin] -= 2.0
-                
+                rsi_adj = -2.0
+            else:
+                rsi_adj = 0.0
+
             if macd > signal:
-                scores[coin] += 1.0
+                macd_adj = 1.0
             elif macd < signal:
-                scores[coin] -= 1.0
-                
+                macd_adj = -1.0
+            else:
+                macd_adj = 0.0
+
+            breakdowns[coin]["rsi_adjustment"] = rsi_adj
+            breakdowns[coin]["macd_adjustment"] = macd_adj
+            scores[coin] += rsi_adj
+            scores[coin] += macd_adj
             scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin]))
-                        
-    return scores
+
+    for coin in scores:
+        breakdowns[coin]["score"] = scores[coin]
+
+    return scores, breakdowns
 
 def pick_portfolio(available_stable, available_volatile, scores, stable_count=DEFAULT_STABLE_COUNT, volatile_count=DEFAULT_VOLATILE_COUNT):
     """

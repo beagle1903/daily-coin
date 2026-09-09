@@ -11,22 +11,47 @@ def test_load_coin_scores():
         }
     }]
     sentiment_impacts = [
-        {"coin": "BTCUSDT", "adjustment": 0.5}
+        {"coin": "BTCUSDT", "adjustment": 0.5, "headline": "Bitcoin rallies", "sentiment": "Bullish"}
     ]
     technical_indicators = {
         "BTCUSDT": {"rsi": 25.0, "macd": 0.1, "signal": 0.0},
         "ETHUSDT": {"rsi": 75.0, "macd": -0.1, "signal": 0.0},
         "SOLUSDT": {"rsi": 50.0, "macd": 0.0, "signal": 0.0}
     }
-    
-    scores = load_coin_scores(universe, history, sentiment_impacts, technical_indicators)
-    # New scoring: cap per-record to ±5.0, average across records, then apply sentiment + tech
-    # BTCUSDT: 10.0 + avg([min(5.0,5.0)]) + 0.5 (sentiment) + 3.0 (tech) = 18.5
-    # ETHUSDT: 10.0 + avg([max(-5.0,-2.0)]) - 3.0 (tech) = 5.0
-    # SOLUSDT: 10.0 (no adjustments) = 10.0
+
+    scores, breakdowns = load_coin_scores(universe, history, sentiment_impacts, technical_indicators)
     assert scores["BTCUSDT"] == 18.5
     assert scores["ETHUSDT"] == 5.0
     assert scores["SOLUSDT"] == 10.0
+
+    btc = breakdowns["BTCUSDT"]
+    assert btc["base"] == 10.0
+    assert btc["history_adjustment"] == 5.0
+    assert btc["news_adjustment"] == 0.5
+    assert btc["news_headline"] == "Bitcoin rallies"
+    assert btc["news_sentiment"] == "Bullish"
+    assert btc["rsi"] == 25.0
+    assert btc["rsi_adjustment"] == 2.0
+    assert btc["macd"] == 0.1
+    assert btc["signal"] == 0.0
+    assert btc["macd_adjustment"] == 1.0
+    assert btc["score"] == 18.5
+
+    eth = breakdowns["ETHUSDT"]
+    assert eth["history_adjustment"] == -2.0
+    assert eth["news_adjustment"] == 0.0
+    assert eth["news_headline"] is None
+    assert eth["news_sentiment"] is None
+    assert eth["rsi_adjustment"] == -2.0
+    assert eth["macd_adjustment"] == -1.0
+    assert eth["score"] == 5.0
+
+    sol = breakdowns["SOLUSDT"]
+    assert sol["history_adjustment"] == 0.0
+    assert sol["news_adjustment"] == 0.0
+    assert sol["rsi_adjustment"] == 0.0
+    assert sol["macd_adjustment"] == 0.0
+    assert sol["score"] == 10.0
 
 def test_pick_portfolio():
     available_stable = ["USDT", "USDC"]
@@ -87,8 +112,9 @@ def test_pick_portfolio_empty_stable_only():
     assert volatile_picks[0] in {"BTC", "ETH"}
 
 def test_load_coin_scores_empty_universe():
-    scores = load_coin_scores([], [])
+    scores, breakdowns = load_coin_scores([], [])
     assert scores == {}
+    assert breakdowns == {}
 
 def test_evaluate_performance_all_zero():
     unevaluated = [
