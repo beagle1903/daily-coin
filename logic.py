@@ -89,6 +89,26 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
 
     return scores, breakdowns
 
+
+def compute_bucket_stats(bucket_symbols, scores):
+    """Rank coins in a variance bucket by score (desc), then symbol (asc)."""
+    if not bucket_symbols:
+        return {}
+    size = len(bucket_symbols)
+    avg = sum(scores.get(symbol, INITIAL_SCORE) for symbol in bucket_symbols) / size
+    ranked = sorted(
+        bucket_symbols,
+        key=lambda symbol: (-scores.get(symbol, INITIAL_SCORE), symbol),
+    )
+    stats = {}
+    for index, symbol in enumerate(ranked, start=1):
+        stats[symbol] = {
+            "bucket_size": size,
+            "bucket_rank": index,
+            "bucket_avg_score": avg,
+        }
+    return stats
+
 def pick_portfolio(available_stable, available_volatile, scores, stable_count=DEFAULT_STABLE_COUNT, volatile_count=DEFAULT_VOLATILE_COUNT):
     """
     Pure function that selects stable and volatile picks based on scores.

@@ -1,5 +1,5 @@
 import pytest
-from logic import load_coin_scores, pick_portfolio, evaluate_performance
+from logic import load_coin_scores, pick_portfolio, evaluate_performance, compute_bucket_stats
 
 def test_load_coin_scores():
     universe = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
@@ -137,3 +137,27 @@ def test_evaluate_performance_all_zero():
     
     assert results[0]["performance"]["BTCUSDT"] == 0.0
     assert results[0]["performance"]["ETHUSDT"] == 0.0
+
+
+def test_compute_bucket_stats_ranks_by_score_then_symbol():
+    scores = {"AAAUSDT": 10.0, "BTCUSDT": 18.5, "ETHUSDT": 18.5, "SOLUSDT": 5.0}
+    stats = compute_bucket_stats(["SOLUSDT", "BTCUSDT", "ETHUSDT", "AAAUSDT"], scores)
+    assert stats["BTCUSDT"]["bucket_rank"] == 1
+    assert stats["ETHUSDT"]["bucket_rank"] == 2
+    assert stats["AAAUSDT"]["bucket_rank"] == 3
+    assert stats["SOLUSDT"]["bucket_rank"] == 4
+    assert stats["BTCUSDT"]["bucket_size"] == 4
+    assert stats["ETHUSDT"]["bucket_size"] == 4
+    assert stats["BTCUSDT"]["bucket_avg_score"] == pytest.approx((10.0 + 18.5 + 18.5 + 5.0) / 4)
+
+
+def test_compute_bucket_stats_empty():
+    assert compute_bucket_stats([], {"BTCUSDT": 10.0}) == {}
+
+
+def test_compute_bucket_stats_missing_score_uses_initial():
+    stats = compute_bucket_stats(["NEWUSDT"], {})
+    assert stats["NEWUSDT"]["bucket_rank"] == 1
+    assert stats["NEWUSDT"]["bucket_size"] == 1
+    assert stats["NEWUSDT"]["bucket_avg_score"] == 10.0
+
