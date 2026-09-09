@@ -11,9 +11,9 @@
 
 ## Project Structure
 - `main.py`: Entry point for the Typer app (`run`, `history`, `serve`). Presentation layer only.
-- `portfolio_service.py`: Shared async portfolio generation pipeline used by the CLI and the API.
+- `portfolio_service.py`: Shared async portfolio generation pipeline used by the CLI and the API. Each pick in `portfolio` includes a nested `explanation` object (components + `summary`).
 - `binance_client.py`: Handles all interactions with the Binance API (variance, RSI, MACD, caching, mock fallback).
-- `logic.py`: Pure functions containing the heuristic scoring, coin selection, and portfolio generation logic.
+- `logic.py`: Pure functions containing the heuristic scoring, coin selection, portfolio generation logic, score breakdowns, bucket rank/average, and the pick-explanation paragraph template.
 - `history.py`: `JsonHistoryRepository` for saving and evaluating past portfolios (saved in `history.json`, 30-day TTL).
 - `news.py`: Fetches RSS feeds from top crypto outlets, parses headlines, and executes VADER sentiment analysis to provide heuristic modifiers.
 - `constants.py`: Centralized tunable parameters (cache TTLs, indicator periods, score caps, VADER settings, portfolio count defaults/max, excluded stablequote bases, news headline limit).
