@@ -14,6 +14,7 @@ import logging
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from constants import DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT
@@ -103,6 +104,13 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
         )
 
     console.print(p_table)
+    console.print("\n[bold yellow]Why these picks[/bold yellow]")
+    for item in portfolio_items:
+        explanation = item.get("explanation") or {}
+        summary = explanation.get("summary")
+        if not summary:
+            continue
+        console.print(f"[magenta]{escape(str(item['display_name']))}[/magenta]  {escape(summary)}")
     console.print("\n[bold green]Done! Run again later to evaluate these picks and get a new portfolio.[/bold green]")
 
 @app.command(name="run")
