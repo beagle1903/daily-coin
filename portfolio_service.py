@@ -7,7 +7,13 @@ import asyncio
 from constants import DEFAULT_VARIANCE_PERCENTILE, NEWS_LIMIT
 from binance_client import fetch_all_market_data, get_current_prices, get_tradeable_symbols
 from history import add_portfolio_record, get_unevaluated_records, load_history, save_history
-from logic import evaluate_performance, load_coin_scores, pick_portfolio
+from logic import (
+    compute_bucket_stats,
+    evaluate_performance,
+    format_pick_explanation,
+    load_coin_scores,
+    pick_portfolio,
+)
 from news import analyze_news_impact, get_latest_news
 
 
@@ -71,7 +77,7 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     universe = available_stable + available_volatile
 
     # Use the already-loaded history (no redundant reload)
-    scores, _breakdowns = load_coin_scores(universe, history, impacts, market_data)
+    scores, breakdowns = load_coin_scores(universe, history, impacts, market_data)
 
     # 5. Pick portfolio
     stable_picks, volatile_picks = pick_portfolio(
@@ -126,16 +132,56 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
 
     # Build structured result
     stable_set = set(final_stable)
+    stable_stats = compute_bucket_stats(available_stable, scores)
+    volatile_stats = compute_bucket_stats(available_volatile, scores)
     portfolio_items = []
     for coin in final_portfolio:
+        display_name = coin.replace("USDT", "")
+        bucket_type = "Stable" if coin in stable_set else "Volatile"
+        per_coin_stats = (
+            stable_stats.get(coin, {}) if bucket_type == "Stable" else volatile_stats.get(coin, {})
+        )
+        breakdown = dict(breakdowns.get(coin, {
+            "base": 10.0,
+            "history_adjustment": 0.0,
+            "news_adjustment": 0.0,
+            "news_headline": None,
+            "news_sentiment": None,
+            "rsi": market_data.get(coin, {}).get("rsi", 50.0) if market_data else 50.0,
+            "rsi_adjustment": 0.0,
+            "macd": market_data.get(coin, {}).get("macd", 0.0) if market_data else 0.0,
+            "signal": market_data.get(coin, {}).get("signal", 0.0) if market_data else 0.0,
+            "macd_adjustment": 0.0,
+            "score": scores.get(coin, 10.0),
+        }))
+        explanation = {
+            "summary": format_pick_explanation(
+                breakdown, per_coin_stats, bucket_type, variance_percentile, display_name
+            ),
+            "base": breakdown["base"],
+            "history_adjustment": breakdown["history_adjustment"],
+            "news_adjustment": breakdown["news_adjustment"],
+            "news_headline": breakdown["news_headline"],
+            "news_sentiment": breakdown["news_sentiment"],
+            "rsi": breakdown["rsi"],
+            "rsi_adjustment": breakdown["rsi_adjustment"],
+            "macd": breakdown["macd"],
+            "signal": breakdown["signal"],
+            "macd_adjustment": breakdown["macd_adjustment"],
+            "score": breakdown["score"],
+            "bucket_size": per_coin_stats.get("bucket_size", 0),
+            "bucket_rank": per_coin_stats.get("bucket_rank", 0),
+            "bucket_avg_score": per_coin_stats.get("bucket_avg_score", 10.0),
+        }
         portfolio_items.append({
             "coin": coin,
-            "display_name": coin.replace("USDT", ""),
-            "type": "Stable" if coin in stable_set else "Volatile",
+            "display_name": display_name,
+            "type": bucket_type,
             "price": prices.get(coin, 0.0),
             "score": scores.get(coin, 10.0),
             "rsi": market_data.get(coin, {}).get("rsi", 50.0) if market_data else 50.0,
             "variance": market_data.get(coin, {}).get("variance", 0.0) if market_data else 0.0,
+            "explanation": explanation,
         })
 
     return {
