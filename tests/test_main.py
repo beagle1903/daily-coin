@@ -70,6 +70,39 @@ def test_run_command_success():
         assert "sampled with this weight" in result.output
 
 
+def test_run_command_escapes_rich_markup_in_explanation():
+    mock_portfolio_result = {
+        "evaluation_results": [],
+        "news": [],
+        "sentiment_impacts": [],
+        "portfolio": [
+            {
+                "coin": "BTCUSDT",
+                "display_name": "BTC",
+                "type": "Stable",
+                "price": 90000.0,
+                "score": 15.0,
+                "rsi": 50.0,
+                "variance": 0.02,
+                "explanation": {
+                    "summary": "[bold red]injected[/bold red]",
+                },
+            },
+        ],
+        "scores": {},
+        "prices": {},
+        "final_stable": ["BTCUSDT"],
+        "final_volatile": [],
+        "market_data": {},
+    }
+
+    with patch("main.generate_portfolio", AsyncMock(return_value=mock_portfolio_result)):
+        result = runner.invoke(app, ["run", "--stable", "1", "--volatile", "1"])
+
+        assert result.exit_code == 0
+        assert "[bold red]injected[/bold red]" in result.output
+
+
 def test_run_command_skips_why_line_when_explanation_missing():
     mock_portfolio_result = {
         "evaluation_results": [],

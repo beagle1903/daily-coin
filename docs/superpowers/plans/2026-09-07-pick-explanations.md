@@ -361,7 +361,7 @@ git commit -m "Rank each variance bucket so pick explanations can cite average a
 
 Sentence rules (implement exactly):
 
-1. `{display_name} is in the {bucket_type} bucket ({lowest|highest} ~{int(round(variance_percentile))}% of 30-day variance among tradeable pairs this run).` Stable → `lowest`, Volatile → `highest`.
+1. `{display_name} is in the {bucket_type} bucket ({lowest|highest} ~{percentile}% of 30-day variance among tradeable pairs this run).` Stable → `lowest` with `percentile = int(round(variance_percentile))`; Volatile → `highest` with `percentile = int(round(100 - variance_percentile))`.
 2. If `bucket_stats.get("bucket_size", 0)` is truthy: `Score {score:.2f} is {rel} the {bucket_type} average of {avg:.2f} (rank {n} of {size} by score).` `rel` from `delta = score - avg`: `|delta| >= 3` → well above/below; `|delta| >= 1` → above/below; else near.
 3. History if `history_adjustment != 0`: `Past picks added a {bonus|penalty} of {history_adjustment:+.2f}.`
 4. News if `news_adjustment != 0`: `{sentiment} news ({headline}) added {news_adjustment:+.2f}.` Truncate headline if longer than 80 chars. If sentiment is missing, use `Bullish` when adjustment > 0 else `Bearish`. If headline is `None`, use `""`.
@@ -427,7 +427,7 @@ def test_format_pick_explanation_omits_zero_history_and_news():
     assert "neutral; no RSI adjustment" in text
     assert "even with its signal (no MACD adjustment)" in text
     assert "near the Volatile average of 10.20" in text
-    assert "highest ~33%" in text
+    assert "highest ~67%" in text
     assert "It was sampled with this weight, not chosen as a guaranteed top pick." in text
 
 
@@ -546,7 +546,7 @@ Add to `logic.py` (import `SCORE_FLOOR` and `SCORE_CEILING` are already imported
 def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_percentile, display_name):
     """Build the templated explanation paragraph for one pick."""
     parts = []
-    percentile = int(round(variance_percentile))
+    percentile = int(round(variance_percentile if bucket_type == "Stable" else 100 - variance_percentile))
     direction = "lowest" if bucket_type == "Stable" else "highest"
     parts.append(
         f"{display_name} is in the {bucket_type} bucket "

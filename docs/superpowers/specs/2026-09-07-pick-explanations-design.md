@@ -88,7 +88,7 @@ Existing callers and tests that treated the return as a single dict must unpack 
 
 1. **Identity + bucket:** `{NAME} is in the {Stable|Volatile} bucket ({lowest|highest} ~{percentile}% of 30-day variance among tradeable pairs this run).`
    - Stable → `lowest`; Volatile → `highest`.
-   - `{percentile}` is the run’s `variance_percentile` rounded to the nearest integer (default 33.3 → `33`).
+   - `{percentile}`: Stable uses `variance_percentile` rounded to the nearest integer (default 33.3 → `33`); Volatile uses `100 - variance_percentile` rounded (default 33.3 → `67`).
    - `{NAME}` is the display name (USDT suffix stripped).
 2. **Score vs bucket:** `Score {score:.2f} is {well above|above|near|below|well below} the {Stable|Volatile} average of {avg:.2f} (rank {n} of {size} by score).`
    - well above/below: `|score − avg| ≥ 3`

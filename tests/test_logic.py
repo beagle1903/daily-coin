@@ -210,7 +210,7 @@ def test_format_pick_explanation_omits_zero_history_and_news():
     assert "neutral; no RSI adjustment" in text
     assert "even with its signal (no MACD adjustment)" in text
     assert "near the Volatile average of 10.20" in text
-    assert "highest ~33%" in text
+    assert "highest ~67%" in text
     assert "It was sampled with this weight, not chosen as a guaranteed top pick." in text
 
 

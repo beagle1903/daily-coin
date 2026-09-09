@@ -113,7 +113,7 @@ def compute_bucket_stats(bucket_symbols, scores):
 def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_percentile, display_name):
     """Build the templated explanation paragraph for one pick."""
     parts = []
-    percentile = int(round(variance_percentile))
+    percentile = int(round(variance_percentile if bucket_type == "Stable" else 100 - variance_percentile))
     direction = "lowest" if bucket_type == "Stable" else "highest"
     parts.append(
         f"{display_name} is in the {bucket_type} bucket "
