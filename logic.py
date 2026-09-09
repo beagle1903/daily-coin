@@ -109,6 +109,88 @@ def compute_bucket_stats(bucket_symbols, scores):
         }
     return stats
 
+
+def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_percentile, display_name):
+    """Build the templated explanation paragraph for one pick."""
+    parts = []
+    percentile = int(round(variance_percentile))
+    direction = "lowest" if bucket_type == "Stable" else "highest"
+    parts.append(
+        f"{display_name} is in the {bucket_type} bucket "
+        f"({direction} ~{percentile}% of 30-day variance among tradeable pairs this run)."
+    )
+
+    size = 0
+    if bucket_stats:
+        size = bucket_stats.get("bucket_size", 0) or 0
+    if size:
+        score = breakdown["score"]
+        avg = bucket_stats["bucket_avg_score"]
+        rank = bucket_stats["bucket_rank"]
+        delta = score - avg
+        abs_delta = abs(delta)
+        if abs_delta >= 3:
+            rel = "well above" if delta > 0 else "well below"
+        elif abs_delta >= 1:
+            rel = "above" if delta > 0 else "below"
+        else:
+            rel = "near"
+        parts.append(
+            f"Score {score:.2f} is {rel} the {bucket_type} average of {avg:.2f} "
+            f"(rank {rank} of {size} by score)."
+        )
+
+    history_adjustment = breakdown.get("history_adjustment", 0.0)
+    if history_adjustment != 0:
+        kind = "bonus" if history_adjustment > 0 else "penalty"
+        parts.append(f"Past picks added a {kind} of {history_adjustment:+.2f}.")
+
+    news_adjustment = breakdown.get("news_adjustment", 0.0)
+    if news_adjustment != 0:
+        sentiment = breakdown.get("news_sentiment")
+        if not sentiment:
+            sentiment = "Bullish" if news_adjustment > 0 else "Bearish"
+        headline = breakdown.get("news_headline") or ""
+        if len(headline) > 80:
+            headline = headline[:80] + "..."
+        parts.append(f"{sentiment} news ({headline}) added {news_adjustment:+.2f}.")
+
+    rsi = breakdown.get("rsi", 50.0)
+    if rsi < 30:
+        rsi_clause = "oversold; +2.0"
+    elif rsi > 70:
+        rsi_clause = "overbought; -2.0"
+    else:
+        rsi_clause = "neutral; no RSI adjustment"
+    parts.append(f"RSI {rsi:.1f} is {rsi_clause}.")
+
+    macd = breakdown.get("macd", 0.0)
+    signal = breakdown.get("signal", 0.0)
+    if macd > signal:
+        macd_clause = "above its signal (+1.0)"
+    elif macd < signal:
+        macd_clause = "below its signal (-1.0)"
+    else:
+        macd_clause = "even with its signal (no MACD adjustment)"
+    parts.append(f"MACD is {macd_clause}.")
+
+    parts.append("It was sampled with this weight, not chosen as a guaranteed top pick.")
+
+    unclamped = (
+        breakdown.get("base", INITIAL_SCORE)
+        + breakdown.get("history_adjustment", 0.0)
+        + breakdown.get("news_adjustment", 0.0)
+        + breakdown.get("rsi_adjustment", 0.0)
+        + breakdown.get("macd_adjustment", 0.0)
+    )
+    score = breakdown["score"]
+    if unclamped > SCORE_CEILING and score == SCORE_CEILING:
+        parts.append("The total was clamped to the 30.0 score limit.")
+    elif unclamped < SCORE_FLOOR and score == SCORE_FLOOR:
+        parts.append("The total was clamped to the 1.0 score limit.")
+
+    return " ".join(parts)
+
 def pick_portfolio(available_stable, available_volatile, scores, stable_count=DEFAULT_STABLE_COUNT, volatile_count=DEFAULT_VOLATILE_COUNT):
     """
     Pure function that selects stable and volatile picks based on scores.
