@@ -103,7 +103,32 @@ def test_generate_portfolio_success():
         "news": [{"title": "BTC news", "source": "CoinDesk", "link": "http://test.com", "timestamp": 123}],
         "sentiment_impacts": [],
         "portfolio": [
-            {"coin": "BTCUSDT", "display_name": "BTC", "type": "Stable", "price": 90000.0, "score": 15.0, "rsi": 50.0, "variance": 0.02}
+            {
+                "coin": "BTCUSDT",
+                "display_name": "BTC",
+                "type": "Stable",
+                "price": 90000.0,
+                "score": 15.0,
+                "rsi": 50.0,
+                "variance": 0.02,
+                "explanation": {
+                    "summary": "BTC is in the Stable bucket (lowest ~33% of 30-day variance among tradeable pairs this run).",
+                    "base": 10.0,
+                    "history_adjustment": 0.0,
+                    "news_adjustment": 0.0,
+                    "news_headline": None,
+                    "news_sentiment": None,
+                    "rsi": 50.0,
+                    "rsi_adjustment": 0.0,
+                    "macd": 0.0,
+                    "signal": 0.0,
+                    "macd_adjustment": 0.0,
+                    "score": 15.0,
+                    "bucket_size": 4,
+                    "bucket_rank": 1,
+                    "bucket_avg_score": 12.0,
+                },
+            }
         ],
         "scores": {"BTCUSDT": 15.0},
         "prices": {"BTCUSDT": 90000.0},
@@ -123,6 +148,11 @@ def test_generate_portfolio_success():
         # Internal fields should be stripped
         assert "scores" not in data
         assert "prices" not in data
+        explanation = data["portfolio"][0]["explanation"]
+        assert explanation["summary"]
+        assert explanation["score"] == 15.0
+        assert explanation["bucket_rank"] == 1
+        assert "market_data" not in data
 
 
 def test_generate_portfolio_with_params():
