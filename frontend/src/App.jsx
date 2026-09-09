@@ -198,7 +198,18 @@ function App() {
                           <span className="metric-label">RSI (14)</span>
                           <span className="metric-value">{coin.rsi.toFixed(1)}</span>
                         </div>
+                        {coin.explanation && (
+                          <div className="metric-item">
+                            <span className="metric-label">MACD</span>
+                            <span className="metric-value">
+                              {coin.explanation.macd.toFixed(2)} / {coin.explanation.signal.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      {coin.explanation?.summary && (
+                        <p className="coin-explanation">{coin.explanation.summary}</p>
+                      )}
                     </div>
                   ))}
                 </div>
