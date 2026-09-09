@@ -1,4 +1,5 @@
 {
   "stable_count": 3,
-  "volatile_count": 6
+  "volatile_count": 6,
+  "variance_percentile": 33.3
 }
