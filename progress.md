@@ -11,7 +11,7 @@
 - Portfolio query/settings counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`) from #12.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Product backlog: #19 explain picks, #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Product backlog: #19 explain picks (implemented on this branch, not yet merged), #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-On `issue-24-p2-audit-closeout`: re-verified August 2026 P2 items 17–27. Most were already on `main`. Remaining gaps: phrase-level news aliases, log batch ticker fallback, `config.py` logging, extra `pick_portfolio` edge test, more values in `constants.py`. Status table is in `reviews/SUMMARY.md`.
+On `issue-19-explain-picks`: picks now carry a nested `explanation` (score components, bucket rank/average, templated `summary`) from the existing scoring pipeline. CLI `run` prints Why these picks; dashboard cards show MACD plus the paragraph. Spec: `docs/superpowers/specs/2026-09-07-pick-explanations-design.md`.

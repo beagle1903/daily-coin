@@ -6,15 +6,28 @@ from constants import SCORE_FLOOR, SCORE_CEILING, MAX_PER_RECORD_ADJUSTMENT, INI
 def load_coin_scores(universe, history, sentiment_impacts=None, technical_indicators=None):
     """
     Pure function that calculates heuristic scores for the coin universe.
-    
-    :param universe: List of coin symbols in the universe
-    :param history: List of historical portfolio records loaded from history.json
-    :param sentiment_impacts: List of sentiment impact dicts from news analysis
-    :param technical_indicators: Dict of symbol -> {"rsi": ..., "macd": ..., "signal": ...}
+
+    :return: (scores, breakdowns) where scores is dict[str, float] and
+             breakdowns is dict[str, dict] of intended score components.
     """
     scores = {coin: INITIAL_SCORE for coin in universe}
-    
-    # Adjust based on history: average adjustments across records, cap each
+    breakdowns = {
+        coin: {
+            "base": INITIAL_SCORE,
+            "history_adjustment": 0.0,
+            "news_adjustment": 0.0,
+            "news_headline": None,
+            "news_sentiment": None,
+            "rsi": 50.0,
+            "rsi_adjustment": 0.0,
+            "macd": 0.0,
+            "signal": 0.0,
+            "macd_adjustment": 0.0,
+            "score": INITIAL_SCORE,
+        }
+        for coin in universe
+    }
+
     coin_adjustments = {coin: [] for coin in universe}
     for record in history:
         if record.get("evaluated") and "performance" in record:
@@ -27,36 +40,156 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
     for coin, adjustments in coin_adjustments.items():
         if adjustments:
             avg_adjustment = sum(adjustments) / len(adjustments)
+            breakdowns[coin]["history_adjustment"] = avg_adjustment
             scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin] + avg_adjustment))
-                        
-    # Apply news sentiment impacts
+
     if sentiment_impacts:
         for impact in sentiment_impacts:
             coin = impact["coin"]
             if coin in scores:
+                breakdowns[coin]["news_adjustment"] += impact["adjustment"]
+                if "headline" in impact:
+                    breakdowns[coin]["news_headline"] = impact["headline"]
+                if "sentiment" in impact:
+                    breakdowns[coin]["news_sentiment"] = impact["sentiment"]
                 scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin] + impact["adjustment"]))
-                    
-    # Apply Technical Indicator modifiers
+
     if technical_indicators:
         for coin in scores:
             ti = technical_indicators.get(coin, {"rsi": 50.0, "macd": 0.0, "signal": 0.0})
             rsi = ti["rsi"]
             macd = ti["macd"]
             signal = ti["signal"]
-            
+            breakdowns[coin]["rsi"] = rsi
+            breakdowns[coin]["macd"] = macd
+            breakdowns[coin]["signal"] = signal
+
             if rsi < 30:
-                scores[coin] += 2.0
+                rsi_adj = 2.0
             elif rsi > 70:
-                scores[coin] -= 2.0
-                
+                rsi_adj = -2.0
+            else:
+                rsi_adj = 0.0
+
             if macd > signal:
-                scores[coin] += 1.0
+                macd_adj = 1.0
             elif macd < signal:
-                scores[coin] -= 1.0
-                
+                macd_adj = -1.0
+            else:
+                macd_adj = 0.0
+
+            breakdowns[coin]["rsi_adjustment"] = rsi_adj
+            breakdowns[coin]["macd_adjustment"] = macd_adj
+            scores[coin] += rsi_adj
+            scores[coin] += macd_adj
             scores[coin] = max(SCORE_FLOOR, min(SCORE_CEILING, scores[coin]))
-                        
-    return scores
+
+    for coin in scores:
+        breakdowns[coin]["score"] = scores[coin]
+
+    return scores, breakdowns
+
+
+def compute_bucket_stats(bucket_symbols, scores):
+    """Rank coins in a variance bucket by score (desc), then symbol (asc)."""
+    if not bucket_symbols:
+        return {}
+    size = len(bucket_symbols)
+    avg = sum(scores.get(symbol, INITIAL_SCORE) for symbol in bucket_symbols) / size
+    ranked = sorted(
+        bucket_symbols,
+        key=lambda symbol: (-scores.get(symbol, INITIAL_SCORE), symbol),
+    )
+    stats = {}
+    for index, symbol in enumerate(ranked, start=1):
+        stats[symbol] = {
+            "bucket_size": size,
+            "bucket_rank": index,
+            "bucket_avg_score": avg,
+        }
+    return stats
+
+
+def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_percentile, display_name):
+    """Build the templated explanation paragraph for one pick."""
+    parts = []
+    percentile = int(round(variance_percentile if bucket_type == "Stable" else 100 - variance_percentile))
+    direction = "lowest" if bucket_type == "Stable" else "highest"
+    parts.append(
+        f"{display_name} is in the {bucket_type} bucket "
+        f"({direction} ~{percentile}% of 30-day variance among tradeable pairs this run)."
+    )
+
+    size = 0
+    if bucket_stats:
+        size = bucket_stats.get("bucket_size", 0) or 0
+    if size:
+        score = breakdown["score"]
+        avg = bucket_stats["bucket_avg_score"]
+        rank = bucket_stats["bucket_rank"]
+        delta = score - avg
+        abs_delta = abs(delta)
+        if abs_delta >= 3:
+            rel = "well above" if delta > 0 else "well below"
+        elif abs_delta >= 1:
+            rel = "above" if delta > 0 else "below"
+        else:
+            rel = "near"
+        parts.append(
+            f"Score {score:.2f} is {rel} the {bucket_type} average of {avg:.2f} "
+            f"(rank {rank} of {size} by score)."
+        )
+
+    history_adjustment = breakdown.get("history_adjustment", 0.0)
+    if history_adjustment != 0:
+        kind = "bonus" if history_adjustment > 0 else "penalty"
+        parts.append(f"Past picks added a {kind} of {history_adjustment:+.2f}.")
+
+    news_adjustment = breakdown.get("news_adjustment", 0.0)
+    if news_adjustment != 0:
+        sentiment = breakdown.get("news_sentiment")
+        if not sentiment:
+            sentiment = "Bullish" if news_adjustment > 0 else "Bearish"
+        headline = breakdown.get("news_headline") or ""
+        if len(headline) > 80:
+            headline = headline[:80] + "..."
+        parts.append(f"{sentiment} news ({headline}) added {news_adjustment:+.2f}.")
+
+    rsi = breakdown.get("rsi", 50.0)
+    if rsi < 30:
+        rsi_clause = "oversold; +2.0"
+    elif rsi > 70:
+        rsi_clause = "overbought; -2.0"
+    else:
+        rsi_clause = "neutral; no RSI adjustment"
+    parts.append(f"RSI {rsi:.1f} is {rsi_clause}.")
+
+    macd = breakdown.get("macd", 0.0)
+    signal = breakdown.get("signal", 0.0)
+    if macd > signal:
+        macd_clause = "above its signal (+1.0)"
+    elif macd < signal:
+        macd_clause = "below its signal (-1.0)"
+    else:
+        macd_clause = "even with its signal (no MACD adjustment)"
+    parts.append(f"MACD is {macd_clause}.")
+
+    parts.append("It was sampled with this weight, not chosen as a guaranteed top pick.")
+
+    unclamped = (
+        breakdown.get("base", INITIAL_SCORE)
+        + breakdown.get("history_adjustment", 0.0)
+        + breakdown.get("news_adjustment", 0.0)
+        + breakdown.get("rsi_adjustment", 0.0)
+        + breakdown.get("macd_adjustment", 0.0)
+    )
+    score = breakdown["score"]
+    if unclamped > SCORE_CEILING and score == SCORE_CEILING:
+        parts.append("The total was clamped to the 30.0 score limit.")
+    elif unclamped < SCORE_FLOOR and score == SCORE_FLOOR:
+        parts.append("The total was clamped to the 1.0 score limit.")
+
+    return " ".join(parts)
 
 def pick_portfolio(available_stable, available_volatile, scores, stable_count=DEFAULT_STABLE_COUNT, volatile_count=DEFAULT_VOLATILE_COUNT):
     """
