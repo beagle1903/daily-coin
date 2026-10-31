@@ -8,6 +8,19 @@ A Python CLI (with an optional web dashboard) that generates a cryptocurrency po
 - **State Rotation**: Automatically maintains a 30-day TTL history of past portfolios.
 - **Web dashboard**: FastAPI backend plus a Vite + React UI in `frontend/`.
 
+## Screenshots
+
+The dashboard shows the recommended allocation (score, RSI, MACD and a plain-language explanation for each pick) next to the latest crypto headlines:
+
+![Daily Coin dashboard](docs/screenshots/dashboard.png)
+
+<details>
+<summary>Full page: all picks and historical portfolio evaluation</summary>
+
+![Daily Coin dashboard, full page](docs/screenshots/dashboard-full.png)
+
+</details>
+
 ## Local Docker (Windows 11 + Docker Desktop)
 
 One Linux container with the same ports as the cloud workspace (Vite `5173`, API `8000`):
