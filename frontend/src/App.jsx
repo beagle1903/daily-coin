@@ -37,6 +37,10 @@ function App() {
   const [isMock, setIsMock] = useState(false)
   // Where the cards on screen came from: { saved: true } = latest history record
   const [portfolioInfo, setPortfolioInfo] = useState(null)
+  // True until the first settings/history load settles. Controls stay disabled
+  // meanwhile, so a late load cannot overwrite a run the user already started
+  // and a run cannot save default counts over the stored settings.
+  const [initializing, setInitializing] = useState(true)
 
   // Trigger portfolio generation. Only runs when the user asks for it: each run
   // evaluates pending records and appends a new one to history.
@@ -98,6 +102,7 @@ function App() {
         }),
       ])
       if (cancelled) return
+      setInitializing(false)
       if (settings) {
         setStableCount(settings.stable_count)
         setVolatileCount(settings.volatile_count)
@@ -136,6 +141,7 @@ function App() {
               max="10"
               value={stableCount}
               onChange={(e) => setStableCount(parseInt(e.target.value) || 1)}
+              disabled={initializing}
               className="settings-input"
             />
             <label htmlFor="volatile-input">Volatile:</label>
@@ -146,15 +152,16 @@ function App() {
               max="20"
               value={volatileCount}
               onChange={(e) => setVolatileCount(parseInt(e.target.value) || 1)}
+              disabled={initializing}
               className="settings-input"
             />
           </div>
           <button 
             onClick={generatePortfolio} 
-            disabled={loading}
+            disabled={loading || initializing}
             className="btn-primary"
           >
-            {loading ? 'Rebalancing...' : 'Run Portfolio Generator'}
+            {loading ? 'Rebalancing...' : initializing ? 'Loading...' : 'Run Portfolio Generator'}
           </button>
         </div>
       </header>
