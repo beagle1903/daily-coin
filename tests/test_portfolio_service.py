@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, patch
 
+from constants import MIN_EVALUATION_AGE_SECONDS
 from portfolio_service import generate_portfolio
 
 EXPLANATION_KEYS = {
@@ -70,7 +71,7 @@ def _pending_record():
     import time
 
     return {
-        "timestamp": time.time() - 3600,
+        "timestamp": time.time() - 2 * MIN_EVALUATION_AGE_SECONDS,
         "portfolio": ["BTCUSDT", "ETHUSDT"],
         "entry_prices": {"BTCUSDT": 50000.0, "ETHUSDT": 2000.0},
         "evaluated": False,
@@ -209,3 +210,66 @@ def test_partial_kline_failure_keeps_run_real(tmp_path, monkeypatch):
     saved = json.loads(history_file.read_text())
     assert len(saved) == 1
     assert "ADAUSDT" not in saved[0]["portfolio"]
+
+
+TWO_COIN_MARKET = {
+    "BTCUSDT": {"variance": 0.01, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+    "ETHUSDT": {"variance": 0.10, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+}
+
+
+def _run_two_coin_pipeline(prices):
+    with patch("portfolio_service.get_tradeable_symbols", return_value=list(TWO_COIN_MARKET)), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])), \
+         patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value=TWO_COIN_MARKET)), \
+         patch("portfolio_service.get_current_prices", return_value=prices):
+        return asyncio.run(
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
+        )
+
+
+def test_young_records_are_left_pending(tmp_path, monkeypatch):
+    """A record under the minimum holding time is not evaluated; an older one is."""
+    import json
+    import time
+
+    young = dict(_pending_record(), timestamp=time.time() - 60)
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record(), young])
+
+    result = _run_two_coin_pipeline({"BTCUSDT": 55000.0, "ETHUSDT": 1900.0})
+
+    assert len(result["evaluation_results"]) == 1
+    assert result["held_evaluations"] == 1
+    saved = json.loads(history_file.read_text())
+    assert [r["evaluated"] for r in saved] == [True, False, False]
+    assert "performance" not in saved[1]
+
+
+def test_only_young_records_means_no_evaluation(tmp_path, monkeypatch):
+    import json
+    import time
+
+    young = dict(_pending_record(), timestamp=time.time() - 60)
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [young])
+
+    result = _run_two_coin_pipeline({"BTCUSDT": 1.0, "ETHUSDT": 2.0})
+
+    assert result["evaluation_results"] == []
+    assert result["held_evaluations"] == 1
+    saved = json.loads(history_file.read_text())
+    assert [r["evaluated"] for r in saved] == [False, False]
+
+
+def test_new_record_stores_picks_for_the_dashboard(tmp_path, monkeypatch):
+    import json
+
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [])
+
+    result = _run_two_coin_pipeline({"BTCUSDT": 1.0, "ETHUSDT": 2.0})
+
+    saved = json.loads(history_file.read_text())
+    assert saved[-1]["picks"] == result["portfolio"]
+    assert saved[-1]["picks"][0]["explanation"]["summary"]

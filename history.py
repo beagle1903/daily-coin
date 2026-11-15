@@ -54,19 +54,39 @@ def save_history(history: List[Dict[str, Any]]) -> None:
 def clean_old_history_in_memory(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return _default_repo.clean_old_history_in_memory(history, _default_repo.ttl_seconds)
 
-def add_portfolio_record(portfolio: List[str], prices: Dict[str, float]) -> None:
+def add_portfolio_record(
+    portfolio: List[str],
+    prices: Dict[str, float],
+    picks: List[Dict[str, Any]] | None = None,
+) -> None:
+    """
+    Append a new record. ``picks`` is the full per-coin detail (score, indicators,
+    explanation) so the dashboard can show the latest saved portfolio without
+    generating a new one. Only the newest record keeps it, to keep the file small.
+    """
     history = load_history()
+    for old_record in history:
+        old_record.pop("picks", None)
     record = {
         "timestamp": time.time(),
         "portfolio": portfolio,
         "entry_prices": prices,
         "evaluated": False
     }
+    if picks is not None:
+        record["picks"] = picks
     history.append(record)
     valid_history = clean_old_history_in_memory(history)
     save_history(valid_history)
 
-def get_unevaluated_records(history: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def get_unevaluated_records(
+    history: List[Dict[str, Any]] = None, min_age_seconds: float = 0
+) -> List[Dict[str, Any]]:
+    """Unevaluated records that are at least ``min_age_seconds`` old."""
     if history is None:
         history = load_history()
-    return [r for r in history if not r.get("evaluated", False)]
+    cutoff = time.time() - min_age_seconds
+    return [
+        r for r in history
+        if not r.get("evaluated", False) and r.get("timestamp", 0) <= cutoff
+    ]

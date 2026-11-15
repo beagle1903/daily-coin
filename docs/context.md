@@ -8,7 +8,8 @@ To provide a fast, command-line tool that generates a cryptocurrency portfolio o
 
 ## Core Features & Rules
 - **Volatility vs. Stability:** Defined mathematically via 30-day historical klines from Binance. High standard deviation = volatile, low standard deviation = stable.
-- **Learning Mechanism:** A heuristic rule-based loop. The app saves the 9 selected coins in `history.json` (30-day TTL). If a selected coin lost value by the next run, it receives a score penalty; if it gained, a bonus.
+- **Learning Mechanism:** A heuristic rule-based loop. The app saves the 9 selected coins in `history.json` (30-day TTL). If a selected coin lost value by a later run, it receives a score penalty; if it gained, a bonus. A saved portfolio is only evaluated once it is at least `MIN_EVALUATION_AGE_SECONDS` old (1 hour by default), so quick re-runs do not add near-zero results to the loop.
+- **Generate on request:** The dashboard never generates on page load. It shows the latest saved portfolio (or an empty state) and only runs the generator when the button is pressed.
 - **Unified Workflow:** A single `run` command assesses the previous portfolio, updates heuristic scores, and prints new picks.
 - **Pick explanations:** Each generated coin includes a structured breakdown (history, news, RSI/MACD, bucket rank vs average) and a templated paragraph in both the CLI and the dashboard. Copy is derived from the same scoring pass used to pick.
 

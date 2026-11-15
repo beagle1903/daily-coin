@@ -100,7 +100,7 @@ async def get_portfolio_history():
     """
     return await asyncio.to_thread(load_history)
 
-@app.get("/api/portfolio/generate", dependencies=[Depends(require_api_key)])
+@app.post("/api/portfolio/generate", dependencies=[Depends(require_api_key)])
 @limiter.limit(PORTFOLIO_GENERATE_RATE_LIMIT)
 async def generate_portfolio(
     request: Request,
@@ -114,6 +114,9 @@ async def generate_portfolio(
     """
     Evaluates past portfolios, fetches latest news/sentiment, calculates heuristic scores,
     and returns a newly recommended portfolio.
+
+    POST because it has side effects: it evaluates pending records and appends a new
+    one to history. The latest saved portfolio can be read from GET /api/history.
     """
     # 0. Resolve parameters with persistent settings fallback
     persistent_settings = await asyncio.to_thread(load_settings_sync)
@@ -133,6 +136,7 @@ async def generate_portfolio(
     # Return only the API-relevant fields (strip internal data like 'scores', 'prices')
     return {
         "evaluation_results": result.get("evaluation_results", []),
+        "held_evaluations": result.get("held_evaluations", 0),
         "news": result.get("news", []),
         "sentiment_impacts": result.get("sentiment_impacts", []),
         "portfolio": result.get("portfolio", []),

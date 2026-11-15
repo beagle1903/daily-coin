@@ -139,7 +139,7 @@ def test_generate_portfolio_success():
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
          patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
-        response = client.get("/api/portfolio/generate")
+        response = client.post("/api/portfolio/generate")
         assert response.status_code == 200
         data = response.json()
         assert "portfolio" in data
@@ -172,7 +172,7 @@ def test_generate_portfolio_with_params():
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
          patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
-        response = client.get("/api/portfolio/generate?stable=2&volatile=4")
+        response = client.post("/api/portfolio/generate?stable=2&volatile=4")
         assert response.status_code == 200
         # Verify the service was called with the query params
         mock_gen.assert_called_once_with(stable_count=2, volatile_count=4, variance_percentile=33.3)
@@ -183,7 +183,7 @@ def test_generate_portfolio_error():
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
          patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
-        response = client.get("/api/portfolio/generate")
+        response = client.post("/api/portfolio/generate")
         assert response.status_code == 200
         data = response.json()
         assert "error" in data
@@ -208,29 +208,29 @@ def test_generate_portfolio_uses_settings_fallback():
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
          patch("server.load_settings_sync", return_value=SettingsModel(stable_count=5, volatile_count=8)):
-        response = client.get("/api/portfolio/generate")
+        response = client.post("/api/portfolio/generate")
         assert response.status_code == 200
         # Should use the settings values
         mock_gen.assert_called_once_with(stable_count=5, volatile_count=8, variance_percentile=33.3)
 
 
 def test_generate_portfolio_rejects_zero_stable():
-    response = client.get("/api/portfolio/generate?stable=0&volatile=4")
+    response = client.post("/api/portfolio/generate?stable=0&volatile=4")
     assert response.status_code == 422
 
 
 def test_generate_portfolio_rejects_negative_volatile():
-    response = client.get("/api/portfolio/generate?stable=2&volatile=-1")
+    response = client.post("/api/portfolio/generate?stable=2&volatile=-1")
     assert response.status_code == 422
 
 
 def test_generate_portfolio_rejects_stable_above_max():
-    response = client.get("/api/portfolio/generate?stable=51&volatile=4")
+    response = client.post("/api/portfolio/generate?stable=51&volatile=4")
     assert response.status_code == 422
 
 
 def test_generate_portfolio_rejects_volatile_above_max():
-    response = client.get("/api/portfolio/generate?stable=2&volatile=51")
+    response = client.post("/api/portfolio/generate?stable=2&volatile=51")
     assert response.status_code == 422
 
 
@@ -269,7 +269,7 @@ def test_settings_rejects_wrong_api_key():
 
 def test_generate_rejects_missing_api_key():
     bare = TestClient(app)
-    response = bare.get("/api/portfolio/generate")
+    response = bare.post("/api/portfolio/generate")
     assert response.status_code == 401
 
 
@@ -296,7 +296,7 @@ def test_generate_portfolio_rate_limited():
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
          patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         statuses = [
-            client.get("/api/portfolio/generate").status_code
+            client.post("/api/portfolio/generate").status_code
             for _ in range(11)
         ]
     assert statuses[-1] == 429
@@ -309,7 +309,29 @@ def test_generate_portfolio_reports_mock_flag(service_result, expected):
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
          patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
-        response = client.get("/api/portfolio/generate")
+        response = client.post("/api/portfolio/generate")
 
     assert response.status_code == 200
     assert response.json()["mock"] is expected
+
+
+def test_generate_portfolio_rejects_get():
+    """Generation has side effects (history writes), so it is POST only."""
+    with patch("server.run_portfolio_generation", AsyncMock()) as mock_gen:
+        response = client.get("/api/portfolio/generate")
+
+    assert response.status_code == 405
+    mock_gen.assert_not_called()
+
+
+def test_generate_portfolio_reports_held_evaluations():
+    mock_result = {
+        "evaluation_results": [], "held_evaluations": 2,
+        "news": [], "sentiment_impacts": [], "portfolio": [],
+    }
+
+    with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
+         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+        response = client.post("/api/portfolio/generate")
+
+    assert response.json()["held_evaluations"] == 2
