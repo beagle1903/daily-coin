@@ -154,7 +154,8 @@ function App() {
         </div>
       )}
 
-      {isMock && !error && (
+      {/* Tied to the cards on screen, so it stays up if a later request fails */}
+      {isMock && portfolio.length > 0 && (
         <div className="mock-notice" role="status">
           Binance is unavailable: these picks use mock market data. They are placeholders,
           were not saved to history, and past picks were not evaluated.
