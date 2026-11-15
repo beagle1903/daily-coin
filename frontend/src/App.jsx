@@ -16,6 +16,16 @@ function errorMessageForStatus(status, fallback) {
   return fallback
 }
 
+async function getJson(path, fallbackMessage) {
+  const res = await fetch(`${API_BASE}${path}`, { headers: apiHeaders() })
+  if (!res.ok) throw new Error(errorMessageForStatus(res.status, fallbackMessage))
+  return res.json()
+}
+
+function newestFirst(records) {
+  return [...records].sort((a, b) => b.timestamp - a.timestamp)
+}
+
 function App() {
   const [loading, setLoading] = useState(false)
   const [portfolio, setPortfolio] = useState([])
@@ -25,35 +35,11 @@ function App() {
   const [volatileCount, setVolatileCount] = useState(6)
   const [error, setError] = useState(null)
   const [isMock, setIsMock] = useState(false)
+  // Where the cards on screen came from: { saved: true } = latest history record
+  const [portfolioInfo, setPortfolioInfo] = useState(null)
 
-  // Fetch settings on mount
-  const fetchSettings = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/settings`, { headers: apiHeaders() })
-      if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to fetch settings'))
-      const data = await res.json()
-      setStableCount(data.stable_count)
-      setVolatileCount(data.volatile_count)
-      return data
-    } catch (err) {
-      console.error(err)
-      return { stable_count: 3, volatile_count: 6 }
-    }
-  }
-
-  // Fetch history list
-  const fetchHistory = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/history`, { headers: apiHeaders() })
-      if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to fetch history'))
-      const data = await res.json()
-      setHistory(data.sort((a, b) => b.timestamp - a.timestamp))
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  // Trigger portfolio generation
+  // Trigger portfolio generation. Only runs when the user asks for it: each run
+  // evaluates pending records and appends a new one to history.
   const generatePortfolio = async () => {
     setLoading(true)
     setError(null)
@@ -70,6 +56,7 @@ function App() {
 
       // 2. Fetch the recommendations
       const res = await fetch(`${API_BASE}/portfolio/generate?stable=${stableCount}&volatile=${volatileCount}`, {
+        method: 'POST',
         headers: apiHeaders(),
       })
       if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to generate portfolio. Make sure backend is running.'))
@@ -81,8 +68,13 @@ function App() {
       }
       setPortfolio(data.portfolio || [])
       setIsMock(Boolean(data.mock))
+      setPortfolioInfo({ saved: false, time: Date.now() })
       setNews(data.news || [])
-      await fetchHistory()
+      try {
+        setHistory(newestFirst(await getJson('/history', 'Failed to fetch history')))
+      } catch (err) {
+        console.error(err)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -90,13 +82,39 @@ function App() {
     }
   }
 
+  // On load, read settings and history only. The latest saved portfolio is shown
+  // from history; nothing is generated until the button is pressed.
   useEffect(() => {
+    let cancelled = false
     const init = async () => {
-      await fetchSettings()
-      await fetchHistory()
-      generatePortfolio()
+      const [settings, records] = await Promise.all([
+        getJson('/settings', 'Failed to fetch settings').catch((err) => {
+          console.error(err)
+          return null
+        }),
+        getJson('/history', 'Failed to fetch history').catch((err) => {
+          console.error(err)
+          return []
+        }),
+      ])
+      if (cancelled) return
+      if (settings) {
+        setStableCount(settings.stable_count)
+        setVolatileCount(settings.volatile_count)
+      }
+      const sorted = newestFirst(records)
+      setHistory(sorted)
+      const latest = sorted[0]
+      if (latest?.picks?.length) {
+        setPortfolio(latest.picks)
+        setIsMock(false)
+        setPortfolioInfo({ saved: true, time: latest.timestamp * 1000 })
+      }
     }
     init()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (
@@ -173,6 +191,13 @@ function App() {
                 {portfolio.length > 0 && (
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     {portfolio.filter(p => p.type === 'Stable').length} Stable / {portfolio.filter(p => p.type === 'Volatile').length} Volatile
+                    {portfolioInfo && (
+                      <>
+                        {' · '}
+                        {portfolioInfo.saved ? 'Last saved run, entry prices from ' : 'Generated '}
+                        {new Date(portfolioInfo.time).toLocaleString()}
+                      </>
+                    )}
                   </span>
                 )}
               </h2>
@@ -184,7 +209,7 @@ function App() {
                 </div>
               ) : portfolio.length === 0 ? (
                 <div className="empty-state">
-                  No portfolio generated yet. Click "Run Portfolio Generator" above.
+                  No saved portfolio yet. Click "Run Portfolio Generator" above to create one.
                 </div>
               ) : (
                 <div className="portfolio-grid">

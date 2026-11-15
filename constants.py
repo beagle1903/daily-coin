@@ -30,6 +30,10 @@ STABLECOIN_EXCLUDED_BASES = {
 # API rate limits
 PORTFOLIO_GENERATE_RATE_LIMIT = "10/minute"
 
+# A saved portfolio is only evaluated once it is at least this old. Younger records
+# stay pending, so quick re-runs do not feed ~0% changes into the history adjustment.
+MIN_EVALUATION_AGE_SECONDS = 3600  # 1 hour
+
 # Scoring Parameters
 SCORE_FLOOR = 1.0
 SCORE_CEILING = 30.0

@@ -169,3 +169,25 @@ def test_run_command_shows_mock_notice():
     assert "mock market data" in result.output
     assert "not saved to history" in result.output
     assert "Run again later to evaluate these picks" not in result.output
+
+
+def test_run_command_reports_held_evaluations():
+    mock_portfolio_result = {
+        "evaluation_results": [],
+        "held_evaluations": 2,
+        "news": [],
+        "sentiment_impacts": [],
+        "portfolio": [
+            {"coin": "BTCUSDT", "display_name": "BTC", "type": "Stable", "price": 90000.0, "score": 10.0, "rsi": 50.0, "variance": 0.02},
+        ],
+        "mock": False,
+    }
+
+    with patch("main.generate_portfolio", AsyncMock(return_value=mock_portfolio_result)):
+        result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 0
+    output = " ".join(result.output.split())  # undo terminal line wrapping
+    assert "2 recent portfolio(s)" in output
+    assert "evaluated on a later run" in output
+    assert "No unevaluated past portfolios found" not in output

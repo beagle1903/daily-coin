@@ -4,7 +4,7 @@ Eliminates code duplication and ensures a single history load per run.
 """
 import asyncio
 
-from constants import DEFAULT_VARIANCE_PERCENTILE, NEWS_LIMIT
+from constants import DEFAULT_VARIANCE_PERCENTILE, MIN_EVALUATION_AGE_SECONDS, NEWS_LIMIT
 from binance_client import (
     fetch_all_market_data,
     get_current_prices,
@@ -35,7 +35,10 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     display-only: past records are not evaluated against mock prices, the new
     portfolio is not saved to history, and the result has ``mock`` set to True.
 
-    :returns: dict with keys: evaluation_results, news, sentiment_impacts,
+    Pending records younger than MIN_EVALUATION_AGE_SECONDS are not evaluated yet;
+    ``held_evaluations`` is how many were left for a later run.
+
+    :returns: dict with keys: evaluation_results, held_evaluations, news, sentiment_impacts,
               portfolio (list of dicts), mock, scores, market_data, final_stable,
               final_volatile, prices OR dict with 'error' key on failure.
     """
@@ -46,7 +49,11 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
 
     # 1. Load history ONCE (fixes P0-3: redundant I/O)
     history = load_history()
-    unevaluated = get_unevaluated_records(history=history)
+    # Only records past the minimum holding time are evaluated; younger ones stay pending
+    unevaluated = get_unevaluated_records(
+        history=history, min_age_seconds=MIN_EVALUATION_AGE_SECONDS
+    )
+    held_evaluations = len(get_unevaluated_records(history=history)) - len(unevaluated)
     evaluation_results = []
 
     # 2. Get tradeable symbols
@@ -145,8 +152,6 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
         return {"error": "Could not find any coins with non-zero prices."}
 
     is_mock = used_mock()
-    if not is_mock:
-        add_portfolio_record(final_portfolio, prices)
 
     # Build structured result
     stable_set = set(final_stable)
@@ -202,8 +207,12 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
             "explanation": explanation,
         })
 
+    if not is_mock:
+        add_portfolio_record(final_portfolio, prices, picks=portfolio_items)
+
     return {
         "evaluation_results": evaluation_results,
+        "held_evaluations": held_evaluations,
         "news": news_items,
         "sentiment_impacts": impacts,
         "portfolio": portfolio_items,

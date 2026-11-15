@@ -17,7 +17,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from constants import DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT
+from constants import DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT, MIN_EVALUATION_AGE_SECONDS
 from history import load_history
 from portfolio_service import generate_portfolio
 
@@ -58,8 +58,15 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
             console.print(table)
     elif is_mock:
         console.print("Past portfolios are not evaluated against mock prices.")
-    else:
+    elif not result.get("held_evaluations"):
         console.print("No unevaluated past portfolios found.")
+
+    held = result.get("held_evaluations", 0)
+    if held and not is_mock:
+        console.print(
+            f"{held} recent portfolio(s) are less than {MIN_EVALUATION_AGE_SECONDS // 60} minutes old "
+            "and will be evaluated on a later run."
+        )
 
     console.print("\n[bold yellow]Fetching latest crypto news and market data concurrently...[/bold yellow]")
 
