@@ -29,6 +29,18 @@ def _activate_circuit_breaker(err_msg):
     logging.warning(f"{err_msg}. Activating Offline Mock Mode for {MOCK_CIRCUIT_BREAKER_SECONDS} seconds.")
     MOCK_DATA_UNTIL = _time.time() + MOCK_CIRCUIT_BREAKER_SECONDS
 
+# Mock data is only a display fallback. It must never be cached (it would outlive
+# the circuit breaker) or reach history; callers detect it via mock_serve_count().
+_mock_serve_count = 0
+
+def mock_serve_count():
+    """How many times mock data has been returned in place of Binance data."""
+    return _mock_serve_count
+
+def _note_mock_served():
+    global _mock_serve_count
+    _mock_serve_count += 1
+
 # --- TTL Cache ---
 _cache = {}
 
@@ -105,9 +117,8 @@ def get_tradeable_symbols(limit=30):
             except Exception as e:
                 _activate_circuit_breaker(f"Binance API get_ticker failed ({type(e).__name__}: {e})")
                 
-    result = _get_mock_tradeable_symbols(allowlist, limit)
-    _cache_set(cache_key, result)
-    return result
+    _note_mock_served()
+    return _get_mock_tradeable_symbols(allowlist, limit)
 
 def _get_mock_prices(symbols):
     mock_prices = {
@@ -147,6 +158,7 @@ def get_current_prices(symbols):
                 except Exception as e2:
                     _activate_circuit_breaker(f"Binance API get_current_prices targeted fallback failed ({type(e2).__name__}: {e2})")
 
+    _note_mock_served()
     return _get_mock_prices(symbols)
 
 def calculate_rsi(closes, period=RSI_PERIOD):
@@ -265,6 +277,5 @@ async def fetch_all_market_data(symbols, max_retries=3):
             if client:
                 await client.close_connection()
 
-    mock_data = get_mock_data()
-    _cache_set(cache_key, mock_data)
-    return mock_data
+    _note_mock_served()
+    return get_mock_data()

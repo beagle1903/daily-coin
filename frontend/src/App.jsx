@@ -24,6 +24,7 @@ function App() {
   const [stableCount, setStableCount] = useState(3)
   const [volatileCount, setVolatileCount] = useState(6)
   const [error, setError] = useState(null)
+  const [isMock, setIsMock] = useState(false)
 
   // Fetch settings on mount
   const fetchSettings = async () => {
@@ -79,6 +80,7 @@ function App() {
         return
       }
       setPortfolio(data.portfolio || [])
+      setIsMock(Boolean(data.mock))
       setNews(data.news || [])
       await fetchHistory()
     } catch (err) {
@@ -149,6 +151,14 @@ function App() {
           fontWeight: '500'
         }}>
           Error: {error}
+        </div>
+      )}
+
+      {/* Tied to the cards on screen, so it stays up if a later request fails */}
+      {isMock && portfolio.length > 0 && (
+        <div className="mock-notice" role="status">
+          Binance is unavailable: these picks use mock market data. They are placeholders,
+          were not saved to history, and past picks were not evaluated.
         </div>
       )}
 

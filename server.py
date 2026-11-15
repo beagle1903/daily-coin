@@ -136,4 +136,5 @@ async def generate_portfolio(
         "news": result.get("news", []),
         "sentiment_impacts": result.get("sentiment_impacts", []),
         "portfolio": result.get("portfolio", []),
+        "mock": result.get("mock", False),
     }

@@ -301,3 +301,15 @@ def test_generate_portfolio_rate_limited():
         ]
     assert statuses[-1] == 429
     assert 200 in statuses
+
+
+@pytest.mark.parametrize("service_result, expected", [({"mock": True}, True), ({}, False)])
+def test_generate_portfolio_reports_mock_flag(service_result, expected):
+    mock_result = {"evaluation_results": [], "news": [], "sentiment_impacts": [], "portfolio": [], **service_result}
+
+    with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
+         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+        response = client.get("/api/portfolio/generate")
+
+    assert response.status_code == 200
+    assert response.json()["mock"] is expected
