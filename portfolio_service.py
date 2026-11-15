@@ -5,7 +5,12 @@ Eliminates code duplication and ensures a single history load per run.
 import asyncio
 
 from constants import DEFAULT_VARIANCE_PERCENTILE, NEWS_LIMIT
-from binance_client import fetch_all_market_data, get_current_prices, get_tradeable_symbols
+from binance_client import (
+    fetch_all_market_data,
+    get_current_prices,
+    get_tradeable_symbols,
+    mock_serve_count,
+)
 from history import add_portfolio_record, get_unevaluated_records, load_history, save_history
 from logic import (
     compute_bucket_stats,
@@ -26,10 +31,19 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     4. Score, pick, and verify prices
     5. Persist and return results
 
+    If Binance was unavailable and any step fell back to mock data, the run is
+    display-only: past records are not evaluated against mock prices, the new
+    portfolio is not saved to history, and the result has ``mock`` set to True.
+
     :returns: dict with keys: evaluation_results, news, sentiment_impacts,
-              portfolio (list of dicts), scores, market_data, available_stable, available_volatile
-              OR dict with 'error' key on failure.
+              portfolio (list of dicts), mock, scores, market_data, final_stable,
+              final_volatile, prices OR dict with 'error' key on failure.
     """
+    mock_mark = mock_serve_count()
+
+    def used_mock():
+        return mock_serve_count() != mock_mark
+
     # 1. Load history ONCE (fixes P0-3: redundant I/O)
     history = load_history()
     unevaluated = get_unevaluated_records(history=history)
@@ -40,17 +54,19 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     if not valid_symbols:
         return {"error": "Could not fetch valid symbols from Binance."}
 
-    if unevaluated:
+    if unevaluated and not used_mock():
         all_coins = set()
         for record in unevaluated:
             all_coins.update(record["portfolio"])
 
         current_prices = get_current_prices(list(all_coins))
-        updated_history, results = evaluate_performance(unevaluated, current_prices, history, valid_symbols)
-        save_history(updated_history)
-        evaluation_results = results
-        # Reload history after evaluation mutations
-        history = updated_history
+        # Records stay pending if the prices came from the mock fallback
+        if not used_mock():
+            updated_history, results = evaluate_performance(unevaluated, current_prices, history, valid_symbols)
+            save_history(updated_history)
+            evaluation_results = results
+            # Reload history after evaluation mutations
+            history = updated_history
 
     # 3. Fetch news and market data concurrently
     news_task = get_latest_news(limit=NEWS_LIMIT)
@@ -128,7 +144,9 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     if not final_portfolio:
         return {"error": "Could not find any coins with non-zero prices."}
 
-    add_portfolio_record(final_portfolio, prices)
+    is_mock = used_mock()
+    if not is_mock:
+        add_portfolio_record(final_portfolio, prices)
 
     # Build structured result
     stable_set = set(final_stable)
@@ -189,6 +207,7 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
         "news": news_items,
         "sentiment_impacts": impacts,
         "portfolio": portfolio_items,
+        "mock": is_mock,
         "scores": scores,
         "market_data": market_data,
         "final_stable": final_stable,

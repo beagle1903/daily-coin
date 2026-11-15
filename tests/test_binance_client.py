@@ -95,3 +95,60 @@ def test_fetch_all_market_data_real_api_mocked():
         assert 0 <= res["BTCUSDT"]["rsi"] <= 100
         mock_async_client.get_klines.assert_called_once()
         mock_async_client.close_connection.assert_called_once()
+
+
+def _fake_ticker_client():
+    class FakeClient:
+        def get_ticker(self):
+            return [
+                {"symbol": "BTCUSDT", "quoteVolume": "300"},
+                {"symbol": "ETHUSDT", "quoteVolume": "200"},
+                {"symbol": "SOLUSDT", "quoteVolume": "100"},
+            ]
+
+    return FakeClient()
+
+
+def test_mock_symbols_are_not_cached_after_recovery():
+    import binance_client
+
+    with patch.dict(binance_client._cache, {}, clear=True):
+        with patch("binance_client._is_mock_mode_active", return_value=True):
+            mock_symbols = get_tradeable_symbols(limit=3)
+        assert binance_client._cache == {}
+
+        with patch("binance_client._is_mock_mode_active", return_value=False), \
+             patch("binance_client.get_sync_client", return_value=_fake_ticker_client()), \
+             patch("binance_client.load_midas_allowlist", return_value=None):
+            real_symbols = get_tradeable_symbols(limit=3)
+
+        assert mock_symbols == ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+        assert real_symbols == ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+        assert binance_client._cache["tradeable_symbols_3"][0] == real_symbols
+
+
+def test_mock_market_data_is_not_cached():
+    import binance_client
+
+    with patch.dict(binance_client._cache, {}, clear=True), \
+         patch("binance_client._is_mock_mode_active", return_value=True):
+        asyncio.run(fetch_all_market_data(["BTCUSDT"]))
+        assert binance_client._cache == {}
+
+
+def test_mock_serve_count_tracks_only_mock_fallbacks():
+    import binance_client
+
+    with patch.dict(binance_client._cache, {}, clear=True):
+        before = binance_client.mock_serve_count()
+        with patch("binance_client._is_mock_mode_active", return_value=True):
+            get_tradeable_symbols(limit=3)
+            get_current_prices(["BTCUSDT"])
+            asyncio.run(fetch_all_market_data(["BTCUSDT"]))
+        assert binance_client.mock_serve_count() == before + 3
+
+        with patch("binance_client._is_mock_mode_active", return_value=False), \
+             patch("binance_client.get_sync_client", return_value=_fake_ticker_client()), \
+             patch("binance_client.load_midas_allowlist", return_value=None):
+            get_tradeable_symbols(limit=3)
+        assert binance_client.mock_serve_count() == before + 3

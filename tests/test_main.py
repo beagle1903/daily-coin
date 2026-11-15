@@ -149,3 +149,23 @@ def test_history_command():
         assert "Portfolio from" in result.output
         assert "BTC" in result.output
         assert "ETH" in result.output
+
+
+def test_run_command_shows_mock_notice():
+    mock_portfolio_result = {
+        "evaluation_results": [],
+        "news": [],
+        "sentiment_impacts": [],
+        "portfolio": [
+            {"coin": "BTCUSDT", "display_name": "BTC", "type": "Stable", "price": 95230.15, "score": 10.0, "rsi": 50.0, "variance": 0.02},
+        ],
+        "mock": True,
+    }
+
+    with patch("main.generate_portfolio", AsyncMock(return_value=mock_portfolio_result)):
+        result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 0
+    assert "mock market data" in result.output
+    assert "not saved to history" in result.output
+    assert "Run again later to evaluate these picks" not in result.output

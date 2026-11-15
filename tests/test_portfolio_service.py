@@ -55,3 +55,107 @@ def test_generate_portfolio_attaches_explanation():
         assert item["type"] in ("Stable", "Volatile")
         assert explanation["bucket_size"] >= 1
         assert explanation["bucket_rank"] >= 1
+
+
+def _use_history_file(monkeypatch, path, records):
+    import json
+
+    from history import JsonHistoryRepository
+
+    path.write_text(json.dumps(records))
+    monkeypatch.setattr("history._default_repo", JsonHistoryRepository(str(path)))
+
+
+def _pending_record():
+    import time
+
+    return {
+        "timestamp": time.time() - 3600,
+        "portfolio": ["BTCUSDT", "ETHUSDT"],
+        "entry_prices": {"BTCUSDT": 50000.0, "ETHUSDT": 2000.0},
+        "evaluated": False,
+    }
+
+
+def test_mock_run_leaves_history_untouched(tmp_path, monkeypatch):
+    import json
+
+    import binance_client
+
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record()])
+    before = history_file.read_text()
+
+    with patch.dict(binance_client._cache, {}, clear=True), \
+         patch("binance_client._is_mock_mode_active", return_value=True), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])):
+        result = asyncio.run(generate_portfolio(stable_count=2, volatile_count=3))
+
+    assert "error" not in result
+    assert result["mock"] is True
+    assert result["portfolio"]
+    assert result["evaluation_results"] == []
+    assert history_file.read_text() == before
+    assert json.loads(before)[0]["evaluated"] is False
+
+
+def test_real_run_evaluates_and_saves_history(tmp_path, monkeypatch):
+    import json
+
+    market_data = {
+        "BTCUSDT": {"variance": 0.01, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+        "ETHUSDT": {"variance": 0.10, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+    }
+    prices = {"BTCUSDT": 55000.0, "ETHUSDT": 1900.0}
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record()])
+
+    with patch("portfolio_service.get_tradeable_symbols", return_value=list(market_data)), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])), \
+         patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value=market_data)), \
+         patch("portfolio_service.get_current_prices", return_value=prices):
+        result = asyncio.run(
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
+        )
+
+    assert result["mock"] is False
+    assert len(result["evaluation_results"]) == 1
+    saved = json.loads(history_file.read_text())
+    assert len(saved) == 2
+    assert saved[0]["evaluated"] is True
+    assert saved[1]["evaluated"] is False
+
+
+def test_mock_fallback_after_evaluation_skips_new_record(tmp_path, monkeypatch):
+    """Real prices at evaluation time, mock fallback later: keep the evaluation, save no new pick."""
+    import json
+
+    import binance_client
+
+    market_data = {
+        "BTCUSDT": {"variance": 0.01, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+        "ETHUSDT": {"variance": 0.10, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+    }
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record()])
+    calls = {"n": 0}
+
+    def prices_then_mock(symbols):
+        calls["n"] += 1
+        if calls["n"] > 1:
+            binance_client._note_mock_served()
+        return {s: 100.0 for s in symbols}
+
+    with patch("portfolio_service.get_tradeable_symbols", return_value=list(market_data)), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])), \
+         patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value=market_data)), \
+         patch("portfolio_service.get_current_prices", side_effect=prices_then_mock):
+        result = asyncio.run(
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
+        )
+
+    assert result["mock"] is True
+    assert len(result["evaluation_results"]) == 1
+    saved = json.loads(history_file.read_text())
+    assert len(saved) == 1
+    assert saved[0]["evaluated"] is True

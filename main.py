@@ -35,6 +35,13 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
         console.print(f"[bold red]{result['error']}[/bold red]")
         return
 
+    is_mock = result.get("mock", False)
+    if is_mock:
+        console.print(
+            "[bold red]Binance is unavailable: this run uses mock market data.[/bold red] "
+            "The picks below are placeholders and were not saved to history."
+        )
+
     # Display evaluation results
     evaluation_results = result.get("evaluation_results", [])
     if evaluation_results:
@@ -49,6 +56,8 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
                 pct = f"{p_change * 100:.2f}%"
                 table.add_row(coin.replace("USDT", ""), f"[{color}]{pct}[/{color}]")
             console.print(table)
+    elif is_mock:
+        console.print("Past portfolios are not evaluated against mock prices.")
     else:
         console.print("No unevaluated past portfolios found.")
 
@@ -111,7 +120,10 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
         if not summary:
             continue
         console.print(f"[magenta]{escape(str(item['display_name']))}[/magenta]  {escape(summary)}")
-    console.print("\n[bold green]Done! Run again later to evaluate these picks and get a new portfolio.[/bold green]")
+    if is_mock:
+        console.print("\n[bold yellow]Done (mock data). Run again once Binance is reachable to get real picks.[/bold yellow]")
+    else:
+        console.print("\n[bold green]Done! Run again later to evaluate these picks and get a new portfolio.[/bold green]")
 
 @app.command(name="run")
 def run_portfolio(

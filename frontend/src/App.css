@@ -409,3 +409,12 @@
   padding: 40px 0;
   color: var(--text-secondary);
 }
+
+.mock-notice {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: var(--accent-gold);
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 500;
+}
