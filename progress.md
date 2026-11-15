@@ -10,11 +10,11 @@
 - Local Docker workspace and Cloud Agent environment setup are on `main`.
 - Portfolio query/settings counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`) from #12.
 - Pick explanations (#19) are on `main`: nested `explanation` on each generate pick, CLI Why these picks, dashboard MACD + paragraph.
-
 - Mock fallback is display-only (#28): not cached, not written to history, flagged as `mock` in the service/API result with a notice in the CLI and dashboard.
+- A symbol with no kline data is skipped for that run (#29); the circuit breaker trips only on broad failure (`KLINE_FAILURE_BREAKER_RATIO`).
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); suggested order there is the data-integrity bugs first (#29, #30 remain). Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); suggested order there is the data-integrity bugs first (#30 remains). Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-#28 implemented on branch `issue-28-mock-data-history` with a PR open (`Closes #28`), not yet merged. 80 tests pass, ruff clean. Next suggested ticket is #29 (partial kline failure trips the global circuit breaker).
+#28 merged via [PR #46](https://github.com/beagle1903/daily-coin/pull/46). #29 implemented on branch `issue-29-partial-kline-failure` with a PR open (`Closes #29`), not yet merged. 83 tests pass, ruff clean. Next suggested ticket is #30 (dashboard generates on every page load; no minimum holding time before evaluation).

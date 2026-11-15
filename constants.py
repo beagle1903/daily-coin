@@ -5,6 +5,9 @@ SEMAPHORE_LIMIT = 15
 SYMBOLS_CACHE_TTL = 3600  # 1 hour
 MARKET_DATA_CACHE_TTL = 900  # 15 minutes
 MOCK_CIRCUIT_BREAKER_SECONDS = 60
+# Share of symbols that must lack kline data before a market-data fetch counts as
+# an outage (circuit breaker + mock fallback). Below it, those symbols are skipped.
+KLINE_FAILURE_BREAKER_RATIO = 0.5
 
 # Technical Indicators
 RSI_PERIOD = 14

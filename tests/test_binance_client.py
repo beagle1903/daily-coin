@@ -152,3 +152,70 @@ def test_mock_serve_count_tracks_only_mock_fallbacks():
              patch("binance_client.load_midas_allowlist", return_value=None):
             get_tradeable_symbols(limit=3)
         assert binance_client.mock_serve_count() == before + 3
+
+
+def _klines(n=60, start=100.0):
+    return [
+        ["123", "1.0", "1.0", "1.0", str(start + i), "1.0", "123", "1.0", 1, "1.0", "1.0", "1.0"]
+        for i in range(n)
+    ]
+
+
+def _kline_client(failing=(), empty=()):
+    async def get_klines(symbol, interval, limit):
+        if symbol in failing:
+            raise RuntimeError(f"no klines for {symbol}")
+        if symbol in empty:
+            return []
+        return _klines()
+
+    client = AsyncMock()
+    client.get_klines = AsyncMock(side_effect=get_klines)
+    return client
+
+
+def _live_binance(monkeypatch):
+    """Real mock-mode logic with the breaker reset; restored after the test."""
+    import binance_client
+
+    monkeypatch.delenv("OFFLINE_MOCK", raising=False)
+    monkeypatch.setattr(binance_client, "MOCK_DATA_UNTIL", 0)
+    return binance_client
+
+
+def test_partial_kline_failure_skips_symbol_without_tripping_breaker(monkeypatch):
+    binance_client = _live_binance(monkeypatch)
+    symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "NEWUSDT"]
+    client = _kline_client(failing={"SOLUSDT"}, empty={"NEWUSDT"})
+    mock_count = binance_client.mock_serve_count()
+
+    with patch.dict(binance_client._cache, {}, clear=True), \
+         patch("binance_client.AsyncClient.create", AsyncMock(return_value=client)), \
+         patch("binance_client.asyncio.sleep", AsyncMock()), \
+         patch("binance_client.logging.warning") as warn:
+        res = asyncio.run(fetch_all_market_data(symbols))
+
+    assert set(res) == {"BTCUSDT", "ETHUSDT"}
+    assert all(item["variance"] > 0 for item in res.values())
+    assert binance_client._is_mock_mode_active() is False
+    assert binance_client.mock_serve_count() == mock_count
+    logged = [call.args for call in warn.call_args_list]
+    assert any("SOLUSDT" in args for args in logged)
+
+
+def test_broad_kline_failure_trips_breaker_and_serves_mock(monkeypatch):
+    binance_client = _live_binance(monkeypatch)
+    symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+    client = _kline_client(failing={"BTCUSDT", "ETHUSDT"})
+    mock_count = binance_client.mock_serve_count()
+
+    with patch.dict(binance_client._cache, {}, clear=True), \
+         patch("binance_client.AsyncClient.create", AsyncMock(return_value=client)), \
+         patch("binance_client.asyncio.sleep", AsyncMock()):
+        res = asyncio.run(fetch_all_market_data(symbols))
+        assert binance_client._cache == {}
+
+    assert set(res) == set(symbols)
+    assert binance_client._is_mock_mode_active() is True
+    assert binance_client.mock_serve_count() == mock_count + 1
+    client.close_connection.assert_called_once()

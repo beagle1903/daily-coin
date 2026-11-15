@@ -159,3 +159,53 @@ def test_mock_fallback_after_evaluation_skips_new_record(tmp_path, monkeypatch):
     saved = json.loads(history_file.read_text())
     assert len(saved) == 1
     assert saved[0]["evaluated"] is True
+
+
+def test_partial_kline_failure_keeps_run_real(tmp_path, monkeypatch):
+    """One symbol without klines: it is not picked, the rest use real data and prices."""
+    import json
+
+    import binance_client
+
+    symbols = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT"]
+    real_prices = {s: 10.0 * (i + 1) for i, s in enumerate(symbols)}
+
+    async def get_klines(symbol, interval, limit):
+        if symbol == "ADAUSDT":
+            raise RuntimeError("klines unavailable")
+        step = 1.0 + symbols.index(symbol)
+        return [[0, "1", "1", "1", str(100.0 + step * (i % 7)), "1"] for i in range(60)]
+
+    async_client = AsyncMock()
+    async_client.get_klines = AsyncMock(side_effect=get_klines)
+
+    class FakeSyncClient:
+        def get_symbol_ticker(self, symbols=None, symbol=None):
+            return [{"symbol": s, "price": str(real_prices[s])} for s in json.loads(symbols)]
+
+    monkeypatch.delenv("OFFLINE_MOCK", raising=False)
+    monkeypatch.setattr(binance_client, "MOCK_DATA_UNTIL", 0)
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [])
+
+    with patch.dict(binance_client._cache, {}, clear=True), \
+         patch("portfolio_service.get_tradeable_symbols", return_value=symbols), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])), \
+         patch("binance_client.AsyncClient.create", AsyncMock(return_value=async_client)), \
+         patch("binance_client.get_sync_client", return_value=FakeSyncClient()), \
+         patch("binance_client.asyncio.sleep", AsyncMock()):
+        result = asyncio.run(
+            generate_portfolio(stable_count=2, volatile_count=2, variance_percentile=50.0)
+        )
+        assert binance_client._is_mock_mode_active() is False
+
+    assert "error" not in result
+    assert result["mock"] is False
+    picked = {item["coin"] for item in result["portfolio"]}
+    assert picked == {"BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"}
+    for item in result["portfolio"]:
+        assert item["price"] == real_prices[item["coin"]]
+        assert item["variance"] > 0
+    saved = json.loads(history_file.read_text())
+    assert len(saved) == 1
+    assert "ADAUSDT" not in saved[0]["portfolio"]
