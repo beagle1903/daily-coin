@@ -13,7 +13,7 @@ from config import BINANCE_API_KEY, BINANCE_API_SECRET
 from constants import (
     SEMAPHORE_LIMIT, SYMBOLS_CACHE_TTL, MARKET_DATA_CACHE_TTL,
     MOCK_CIRCUIT_BREAKER_SECONDS, RSI_PERIOD, MACD_FAST, MACD_SLOW, MACD_SIGNAL,
-    STABLECOIN_EXCLUDED_BASES,
+    STABLECOIN_EXCLUDED_BASES, KLINE_FAILURE_BREAKER_RATIO,
 )
 
 _client = None
@@ -242,7 +242,13 @@ async def fetch_all_market_data(symbols, max_retries=3):
                             return symbol, klines
                     except Exception as e:
                         if attempt == max_retries - 1:
-                            _activate_circuit_breaker(f"Binance API kline fetch failed for {symbol} after {max_retries} attempts ({type(e).__name__}: {e})")
+                            # One symbol failing is not an outage: log it and leave the
+                            # circuit breaker alone. Broad failure is handled below.
+                            logging.warning(
+                                "Binance kline fetch failed for %s after %d attempts (%s: %s); "
+                                "leaving it out of this run",
+                                symbol, max_retries, type(e).__name__, e,
+                            )
                             return symbol, None
                         await asyncio.sleep(1)
 
@@ -252,23 +258,27 @@ async def fetch_all_market_data(symbols, max_retries=3):
             data_map = {}
             for symbol, klines in results:
                 closes = [float(k[4]) for k in klines] if klines else []
-                if not closes:
-                    data_map[symbol] = {"variance": 0.0, "rsi": 50.0, "macd": 0.0, "signal": 0.0}
+                if len(closes) < 2:
+                    # No usable history. Leave the symbol out: a placeholder variance
+                    # of 0.0 would rank it as the most stable coin in the universe.
                     continue
-                
+
                 closes_30d = closes[-180:] if len(closes) >= 180 else closes
                 variance = 0.0
-                if len(closes_30d) >= 2:
-                    arr = np.array(closes_30d)
-                    valid_idx = arr[:-1] > 0
-                    if np.any(valid_idx):
-                        returns = (arr[1:][valid_idx] - arr[:-1][valid_idx]) / arr[:-1][valid_idx]
-                        variance = float(np.std(returns))
-                        
+                arr = np.array(closes_30d)
+                valid_idx = arr[:-1] > 0
+                if np.any(valid_idx):
+                    returns = (arr[1:][valid_idx] - arr[:-1][valid_idx]) / arr[:-1][valid_idx]
+                    variance = float(np.std(returns))
+
                 rsi = calculate_rsi(closes)
                 macd, signal = calculate_macd(closes)
                 data_map[symbol] = {"variance": variance, "rsi": rsi, "macd": macd, "signal": signal}
-            
+
+            missing = len(symbols) - len(data_map)
+            if missing > len(symbols) * KLINE_FAILURE_BREAKER_RATIO:
+                raise RuntimeError(f"no kline data for {missing} of {len(symbols)} symbols")
+
             _cache_set(cache_key, data_map)
             return data_map
         except Exception as e:
