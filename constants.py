@@ -22,6 +22,17 @@ DEFAULT_VOLATILE_COUNT = 6
 DEFAULT_VARIANCE_PERCENTILE = 33.3
 NEWS_LIMIT = 5
 
+# News headline matching (see news.find_mentioned_symbols)
+# A bare ticker shorter than this only counts when written as "$TICKER".
+NEWS_TICKER_MIN_LENGTH = 3
+# Tickers that are everyday words or common acronyms. Even in upper case they are
+# too likely to mean something else, so they also need the "$" prefix.
+NEWS_AMBIGUOUS_TICKERS = {
+    "ACT", "AMP", "APE", "ARK", "BAR", "BIO", "CAT", "COW", "GMT", "GPS", "HOT",
+    "LIT", "MET", "NOT", "ONE", "RAD", "RAY", "RED", "SKY", "SUN", "WET",
+    "CITY", "CORE", "HOME", "MOVE", "OPEN", "ORDER", "SUPER",
+}
+
 # Quote-stable pairs excluded from the tradeable USDT universe
 STABLECOIN_EXCLUDED_BASES = {
     "USDC", "FDUSD", "TUSD", "BUSD", "USD1", "EUR", "DAI", "USDD", "PYUSD", "USDP", "AEUR",

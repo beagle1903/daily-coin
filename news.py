@@ -4,7 +4,14 @@ import time
 
 import feedparser
 
-from constants import NEWS_LIMIT, VADER_THRESHOLD, VADER_MULTIPLIER, VADER_CRYPTO_LEXICON
+from constants import (
+    NEWS_AMBIGUOUS_TICKERS,
+    NEWS_LIMIT,
+    NEWS_TICKER_MIN_LENGTH,
+    VADER_CRYPTO_LEXICON,
+    VADER_MULTIPLIER,
+    VADER_THRESHOLD,
+)
 
 _ANALYZER_INSTANCE = None
 _ANALYZER_INITIALIZED = False
@@ -26,12 +33,14 @@ RSS_FEEDS = [
     "https://www.coindesk.com/arc/outboundfeeds/rss/"
 ]
 
-# Longer phrases first at match time so "dog wif hat" wins over stray short tokens.
+# Coin names, matched case-insensitively on word boundaries. Only names that point
+# at one coin belong here: an exchange or company name ("binance") moves headlines
+# that are not about the coin.
 _NAME_ALIASES = {
     "bitcoin": "BTCUSDT",
     "ethereum": "ETHUSDT",
     "binance coin": "BNBUSDT",
-    "binance": "BNBUSDT",
+    "bnb chain": "BNBUSDT",
     "cardano": "ADAUSDT",
     "ripple": "XRPUSDT",
     "solana": "SOLUSDT",
@@ -40,26 +49,84 @@ _NAME_ALIASES = {
     "uniswap": "UNIUSDT",
     "polkadot": "DOTUSDT",
     "litecoin": "LTCUSDT",
-    "polygon": "MATICUSDT",
+    "polygon": "POLUSDT",
     "cosmos": "ATOMUSDT",
     "dogecoin": "DOGEUSDT",
     "dog wif hat": "WIFUSDT",
     "dogwifhat": "WIFUSDT",
     "shiba inu": "SHIBUSDT",
     "shiba": "SHIBUSDT",
+    "pepe": "PEPEUSDT",
+    "floki": "FLOKIUSDT",
+    "bonk": "BONKUSDT",
+    "aave": "AAVEUSDT",
+    "toncoin": "TONUSDT",
+    "tron": "TRXUSDT",
+    "arbitrum": "ARBUSDT",
+    "aptos": "APTUSDT",
+    "hyperliquid": "HYPEUSDT",
+    "filecoin": "FILUSDT",
+    "worldcoin": "WLDUSDT",
+    "celestia": "TIAUSDT",
+    "injective": "INJUSDT",
+    "pancakeswap": "CAKEUSDT",
+    "apecoin": "APEUSDT",
+    "hedera": "HBARUSDT",
+    "algorand": "ALGOUSDT",
+    "kaspa": "KASUSDT",
+    "near protocol": "NEARUSDT",
+    "internet computer": "ICPUSDT",
 }
 
+_ALIAS_PATTERNS = [
+    (re.compile(r"\b" + re.escape(name) + r"\b"), symbol)
+    for name, symbol in _NAME_ALIASES.items()
+]
 
-def build_keyword_map(tradeable_symbols):
-    """Dynamically builds a keyword map from tradeable symbols list."""
-    keyword_map = dict(_NAME_ALIASES)
-    
-    if tradeable_symbols:
-        for symbol in tradeable_symbols:
-            base = symbol[:-4].lower()
-            keyword_map[base] = symbol
-            
-    return keyword_map
+_TOKEN_RE = re.compile(r"\$?[A-Za-z0-9]+")
+
+
+def build_ticker_map(tradeable_symbols):
+    """Maps upper-case base tickers ("BTC") to their tradeable symbol ("BTCUSDT")."""
+    return {symbol[:-4].upper(): symbol for symbol in tradeable_symbols or []}
+
+
+def find_mentioned_symbols(headline, ticker_map=None):
+    """
+    Symbols a headline is about.
+
+    Names from _NAME_ALIASES match in any case. Tickers are stricter, because many
+    are ordinary words or single letters (NOT, MOVE, HOME, S):
+    - "$TICKER" always counts, in any case.
+    - A bare ticker counts only if it is written in upper case in a headline that
+      is not all upper case, is at least NEWS_TICKER_MIN_LENGTH characters long,
+      and is not listed in NEWS_AMBIGUOUS_TICKERS.
+    """
+    found = set()
+    headline_lower = headline.lower()
+    for pattern, symbol in _ALIAS_PATTERNS:
+        if pattern.search(headline_lower):
+            found.add(symbol)
+
+    if ticker_map:
+        # In an all-caps headline, upper case says nothing about which words are tickers
+        mixed_case = any(char.islower() for char in headline)
+        for token in _TOKEN_RE.findall(headline):
+            symbol = None
+            if token.startswith("$"):
+                symbol = ticker_map.get(token[1:].upper())
+            elif (
+                mixed_case
+                and len(token) >= NEWS_TICKER_MIN_LENGTH
+                and token == token.upper()
+                and token not in NEWS_AMBIGUOUS_TICKERS
+            ):
+                symbol = ticker_map.get(token)
+            if symbol:
+                found.add(symbol)
+
+    return found
+
 
 async def get_latest_news(limit=NEWS_LIMIT):
     # Run the blocking feedparser.parse calls concurrently in background threads
@@ -104,17 +171,13 @@ def analyze_news_impact(articles, tradeable_symbols=None):
     if not analyzer:
         return impacts
         
-    keyword_map = build_keyword_map(tradeable_symbols)
+    ticker_map = build_ticker_map(tradeable_symbols)
     coin_compounds = {}
-    
+
     for article in articles:
         headline = article.get("title", "")
-        headline_lower = headline.lower()
-        found_symbols = set()
-        for keyword, symbol in sorted(keyword_map.items(), key=lambda item: len(item[0]), reverse=True):
-            if re.search(r"\b" + re.escape(keyword) + r"\b", headline_lower):
-                found_symbols.add(symbol)
-                
+        found_symbols = find_mentioned_symbols(headline, ticker_map)
+
         if found_symbols:
             sentiment = analyzer.polarity_scores(headline)
             compound = sentiment['compound']

@@ -18,4 +18,4 @@
 See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the three data-integrity bugs (#28–#30) are done, next in the suggested order are news matching (#31) and settings (#32). Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-#28 and #29 merged via [PR #46](https://github.com/beagle1903/daily-coin/pull/46) and [PR #47](https://github.com/beagle1903/daily-coin/pull/47). #30 implemented on branch `issue-30-generate-on-demand` with a PR open (`Closes #30`), not yet merged. 92 tests pass, ruff and oxlint clean. Next suggested ticket is #31 (news keyword matching scores the wrong coins).
+#28, #29 and #30 merged via PRs #46, #47 and #48. #31 (news keyword matching) implemented on branch `issue-31-news-keyword-matching` with a PR open (`Closes #31`), not yet merged: tickers now need `$` or upper case (`news.find_mentioned_symbols`), aliases reviewed. 101 tests pass, ruff clean. Next suggested ticket is #32 (settings handling).
