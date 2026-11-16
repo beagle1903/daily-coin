@@ -209,6 +209,19 @@ def _stored_settings():
     return SettingsModel(stable_count=4, volatile_count=7, variance_percentile=45.0)
 
 
+def test_run_command_shows_sub_cent_entry_price():
+    result_with_shib = dict(MINIMAL_RUN_RESULT, portfolio=[
+        {"coin": "SHIBUSDT", "display_name": "SHIB", "type": "Volatile", "price": 0.0000245, "score": 10.0, "rsi": 50.0, "variance": 0.05},
+    ])
+    with patch("main.load_settings", return_value=_stored_settings()), \
+         patch("main.generate_portfolio", AsyncMock(return_value=result_with_shib)):
+        result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 0
+    assert "$0.00002450" in result.output
+    assert "$0.0000 " not in result.output
+
+
 def test_run_command_uses_saved_settings_by_default():
     with patch("main.load_settings", return_value=_stored_settings()), \
          patch("main.generate_portfolio", AsyncMock(return_value=MINIMAL_RUN_RESULT)) as mock_gen:
