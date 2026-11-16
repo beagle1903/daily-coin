@@ -25,7 +25,7 @@ docker compose up --build                                        # both, in one 
 
 - `main.py` (Typer CLI) and `server.py` (FastAPI) are thin presentation layers; both call `portfolio_service.generate_portfolio`, the single async pipeline.
 - Pipeline: `history.py` evaluates past picks (30-day TTL, `history.json`) → `news.py` pulls RSS headlines and scores them with VADER → `binance_client.py` fetches variance/RSI/MACD (cached, mock fallback) → `logic.py` (pure functions) scores, splits into stable/volatile buckets, selects, and builds each pick's nested `explanation`.
-- Tunables live in `constants.py`; user-adjustable counts persist in `settings.json` via `/api/settings`.
+- Tunables live in `constants.py`. User-adjustable settings (counts, variance percentile) live in `settings.py`, shared by the CLI and the API, and persist in the untracked `settings.json` via `/api/settings` (partial update).
 - `/api/*` routes require `X-API-Key`; `POST /api/portfolio/generate` is rate-limited and is the only route that writes history. The Vite key is shipped in the client bundle, so it is shared-local protection, not auth.
 - `frontend/` is a single-page Vite + React app (`src/App.jsx`) calling the API at port 8000.
 

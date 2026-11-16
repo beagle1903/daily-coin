@@ -1,21 +1,20 @@
 import asyncio
 import hmac
-import json
-import os
-from filelock import FileLock
+
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Security, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
-from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIASGIMiddleware
 from slowapi.util import get_remote_address
 
 from config import get_daily_coin_api_key
-from constants import PORTFOLIO_COUNT_MAX, PORTFOLIO_GENERATE_RATE_LIMIT, DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT, DEFAULT_VARIANCE_PERCENTILE
+from constants import PORTFOLIO_COUNT_MAX, PORTFOLIO_GENERATE_RATE_LIMIT
 from history import load_history
 from portfolio_service import generate_portfolio as run_portfolio_generation
+from settings import SettingsModel, SettingsUpdate, load_settings
+from settings import update_settings as apply_settings_update
 
 app = FastAPI(title="Daily Coin API", description="API server for the Daily Coin portfolio selection and tracking system")
 limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
@@ -43,55 +42,20 @@ async def require_api_key(api_key: str | None = Security(api_key_header)) -> Non
             detail="Invalid or missing API key",
         )
 
-SETTINGS_FILE = "settings.json"
-
-class SettingsModel(BaseModel):
-    stable_count: int = Field(gt=0, le=PORTFOLIO_COUNT_MAX)
-    volatile_count: int = Field(gt=0, le=PORTFOLIO_COUNT_MAX)
-    variance_percentile: float = DEFAULT_VARIANCE_PERCENTILE
-
-def load_settings_sync() -> SettingsModel:
-    lock_path = f"{SETTINGS_FILE}.lock"
-    with FileLock(lock_path):
-        if os.path.exists(SETTINGS_FILE):
-            try:
-                with open(SETTINGS_FILE, "r") as f:
-                    data = json.load(f)
-                    return SettingsModel(
-                        stable_count=data.get("stable_count", DEFAULT_STABLE_COUNT),
-                        volatile_count=data.get("volatile_count", DEFAULT_VOLATILE_COUNT),
-                        variance_percentile=data.get("variance_percentile", DEFAULT_VARIANCE_PERCENTILE)
-                    )
-            except Exception:
-                pass
-    return SettingsModel(
-        stable_count=DEFAULT_STABLE_COUNT,
-        volatile_count=DEFAULT_VOLATILE_COUNT,
-        variance_percentile=DEFAULT_VARIANCE_PERCENTILE,
-    )
-
-def save_settings_sync(settings: SettingsModel):
-    lock_path = f"{SETTINGS_FILE}.lock"
-    temp_path = f"{SETTINGS_FILE}.tmp"
-    with FileLock(lock_path):
-        with open(temp_path, "w") as f:
-            json.dump(settings.model_dump(), f, indent=2)
-        os.replace(temp_path, SETTINGS_FILE)
-
 @app.get("/api/settings", response_model=SettingsModel, dependencies=[Depends(require_api_key)])
 async def get_settings():
     """
     Returns current persistent settings.
     """
-    return await asyncio.to_thread(load_settings_sync)
+    return await asyncio.to_thread(load_settings)
 
 @app.post("/api/settings", response_model=SettingsModel, dependencies=[Depends(require_api_key)])
-async def update_settings(settings: SettingsModel):
+async def update_settings(update: SettingsUpdate):
     """
-    Updates and persists target stable and volatile coin counts.
+    Updates and persists settings. Only the fields that are sent change; the rest
+    keep their stored value. Returns the full settings after the update.
     """
-    await asyncio.to_thread(save_settings_sync, settings)
-    return settings
+    return await asyncio.to_thread(apply_settings_update, update)
 
 @app.get("/api/history", dependencies=[Depends(require_api_key)])
 async def get_portfolio_history():
@@ -119,7 +83,7 @@ async def generate_portfolio(
     one to history. The latest saved portfolio can be read from GET /api/history.
     """
     # 0. Resolve parameters with persistent settings fallback
-    persistent_settings = await asyncio.to_thread(load_settings_sync)
+    persistent_settings = await asyncio.to_thread(load_settings)
     stable_val = stable if stable is not None else persistent_settings.stable_count
     volatile_val = volatile if volatile is not None else persistent_settings.volatile_count
 
