@@ -66,9 +66,14 @@ source venv/bin/activate
 # Generate a portfolio and evaluate previous picks
 python main.py run
 
+# Override the saved settings for one run (not saved)
+python main.py run --stable 2 --volatile 4 --variance-percentile 40
+
 # Show past portfolio performance
 python main.py history
 ```
+
+Without options, `run` uses the settings saved in `settings.json` (the same ones the dashboard edits). The file is created the first time settings are saved from the dashboard; until then the defaults apply (3 stable, 6 volatile, lowest 33.3% of coins by variance count as stable).
 
 ## Running the web app
 ```bash

@@ -3,6 +3,17 @@ import './App.css'
 
 const API_BASE = 'http://127.0.0.1:8000/api'
 
+// Upper bound for the stable and volatile counts. Keep in step with
+// PORTFOLIO_COUNT_MAX in constants.py, which the API enforces.
+const COUNT_MAX = 50
+
+// Parse a count input and keep it inside the range the API accepts.
+function clampCount(value) {
+  const parsed = parseInt(value, 10)
+  if (Number.isNaN(parsed)) return 1
+  return Math.min(COUNT_MAX, Math.max(1, parsed))
+}
+
 function apiHeaders(extra = {}) {
   return {
     'X-API-Key': import.meta.env.VITE_DAILY_COIN_API_KEY || '',
@@ -48,7 +59,8 @@ function App() {
     setLoading(true)
     setError(null)
     try {
-      // 1. Save settings to the server
+      // 1. Save the counts. This is a partial update: settings the dashboard does
+      // not show (variance_percentile) keep their stored value.
       const settingsRes = await fetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: apiHeaders({ 'Content-Type': 'application/json' }),
@@ -138,9 +150,9 @@ function App() {
               id="stable-input"
               type="number" 
               min="1" 
-              max="10"
+              max={COUNT_MAX}
               value={stableCount}
-              onChange={(e) => setStableCount(parseInt(e.target.value) || 1)}
+              onChange={(e) => setStableCount(clampCount(e.target.value))}
               disabled={initializing}
               className="settings-input"
             />
@@ -149,9 +161,9 @@ function App() {
               id="volatile-input"
               type="number" 
               min="1" 
-              max="20"
+              max={COUNT_MAX}
               value={volatileCount}
-              onChange={(e) => setVolatileCount(parseInt(e.target.value) || 1)}
+              onChange={(e) => setVolatileCount(clampCount(e.target.value))}
               disabled={initializing}
               className="settings-input"
             />

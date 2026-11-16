@@ -11,25 +11,31 @@ if sys.platform == "win32":
 
 from datetime import datetime
 import logging
+from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from constants import DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT, MIN_EVALUATION_AGE_SECONDS
+from constants import MIN_EVALUATION_AGE_SECONDS, PORTFOLIO_COUNT_MAX
 from history import load_history
 from portfolio_service import generate_portfolio
+from settings import load_settings
 
 logging.basicConfig(level=logging.WARNING)
 
 console = Console()
 app = typer.Typer()
 
-async def async_run_portfolio(stable_count: int, volatile_count: int):
+async def async_run_portfolio(stable_count: int, volatile_count: int, variance_percentile: float):
     console.print("Checking for previous portfolios to evaluate...")
 
-    result = await generate_portfolio(stable_count=stable_count, volatile_count=volatile_count)
+    result = await generate_portfolio(
+        stable_count=stable_count,
+        volatile_count=volatile_count,
+        variance_percentile=variance_percentile,
+    )
 
     if "error" in result:
         console.print(f"[bold red]{result['error']}[/bold red]")
@@ -134,14 +140,40 @@ async def async_run_portfolio(stable_count: int, volatile_count: int):
 
 @app.command(name="run")
 def run_portfolio(
-    stable: int = typer.Option(DEFAULT_STABLE_COUNT, min=1, help="Number of stable coins to pick"),
-    volatile: int = typer.Option(DEFAULT_VOLATILE_COUNT, min=1, help="Number of volatile coins to pick")
+    stable: Optional[int] = typer.Option(
+        None, min=1, max=PORTFOLIO_COUNT_MAX,
+        help="Number of stable coins to pick (default: saved settings)",
+    ),
+    volatile: Optional[int] = typer.Option(
+        None, min=1, max=PORTFOLIO_COUNT_MAX,
+        help="Number of volatile coins to pick (default: saved settings)",
+    ),
+    variance_percentile: Optional[float] = typer.Option(
+        None,
+        help="Percent of coins, lowest variance first, that form the stable bucket; "
+             "above 0 and below 100 (default: saved settings)",
+    ),
 ):
     """
     Evaluates the previous portfolio (if any) and generates a new portfolio of coins.
+
+    Options that are left out use the saved settings in settings.json, which the
+    dashboard also uses. Options given here apply to this run only; they are not saved.
     """
+    if variance_percentile is not None and not 0 < variance_percentile < 100:
+        raise typer.BadParameter(
+            "must be above 0 and below 100", param_hint="--variance-percentile"
+        )
+
+    settings = load_settings()
     console.print("[bold blue]Starting Crypto Portfolio Generator...[/bold blue]")
-    asyncio.run(async_run_portfolio(stable_count=stable, volatile_count=volatile))
+    asyncio.run(async_run_portfolio(
+        stable_count=stable if stable is not None else settings.stable_count,
+        volatile_count=volatile if volatile is not None else settings.volatile_count,
+        variance_percentile=(
+            variance_percentile if variance_percentile is not None else settings.variance_percentile
+        ),
+    ))
 
 @app.command(name="history")
 def show_history():

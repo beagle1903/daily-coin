@@ -30,7 +30,7 @@ def reset_rate_limiter():
 
 def test_get_settings_defaults(tmp_path, monkeypatch):
     """When no settings file exists, defaults should be returned."""
-    monkeypatch.setattr("server.SETTINGS_FILE", str(tmp_path / "settings.json"))
+    monkeypatch.setattr("settings.SETTINGS_FILE", str(tmp_path / "settings.json"))
     response = client.get("/api/settings")
     assert response.status_code == 200
     data = response.json()
@@ -40,7 +40,7 @@ def test_get_settings_defaults(tmp_path, monkeypatch):
 
 def test_update_settings(tmp_path, monkeypatch):
     settings_file = str(tmp_path / "settings.json")
-    monkeypatch.setattr("server.SETTINGS_FILE", settings_file)
+    monkeypatch.setattr("settings.SETTINGS_FILE", settings_file)
 
     response = client.post(
         "/api/settings",
@@ -59,7 +59,7 @@ def test_update_settings(tmp_path, monkeypatch):
 def test_get_settings_with_existing_file(tmp_path, monkeypatch):
     settings_file = tmp_path / "settings.json"
     settings_file.write_text(json.dumps({"stable_count": 2, "volatile_count": 4}))
-    monkeypatch.setattr("server.SETTINGS_FILE", str(settings_file))
+    monkeypatch.setattr("settings.SETTINGS_FILE", str(settings_file))
 
     response = client.get("/api/settings")
     assert response.status_code == 200
@@ -138,7 +138,7 @@ def test_generate_portfolio_success():
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         response = client.post("/api/portfolio/generate")
         assert response.status_code == 200
         data = response.json()
@@ -171,7 +171,7 @@ def test_generate_portfolio_with_params():
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         response = client.post("/api/portfolio/generate?stable=2&volatile=4")
         assert response.status_code == 200
         # Verify the service was called with the query params
@@ -182,7 +182,7 @@ def test_generate_portfolio_error():
     mock_result = {"error": "Could not fetch valid symbols from Binance."}
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         response = client.post("/api/portfolio/generate")
         assert response.status_code == 200
         data = response.json()
@@ -207,7 +207,7 @@ def test_generate_portfolio_uses_settings_fallback():
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=5, volatile_count=8)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=5, volatile_count=8)):
         response = client.post("/api/portfolio/generate")
         assert response.status_code == 200
         # Should use the settings values
@@ -294,7 +294,7 @@ def test_generate_portfolio_rate_limited():
         "market_data": {},
     }
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         statuses = [
             client.post("/api/portfolio/generate").status_code
             for _ in range(11)
@@ -308,7 +308,7 @@ def test_generate_portfolio_reports_mock_flag(service_result, expected):
     mock_result = {"evaluation_results": [], "news": [], "sentiment_impacts": [], "portfolio": [], **service_result}
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         response = client.post("/api/portfolio/generate")
 
     assert response.status_code == 200
@@ -331,7 +331,44 @@ def test_generate_portfolio_reports_held_evaluations():
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
-         patch("server.load_settings_sync", return_value=SettingsModel(stable_count=3, volatile_count=6)):
+         patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         response = client.post("/api/portfolio/generate")
 
     assert response.json()["held_evaluations"] == 2
+
+
+def test_update_settings_keeps_variance_percentile_when_only_counts_are_sent(tmp_path, monkeypatch):
+    """The dashboard posts only the two counts; a custom percentile must survive."""
+    settings_file = tmp_path / "settings.json"
+    settings_file.write_text(json.dumps(
+        {"stable_count": 3, "volatile_count": 6, "variance_percentile": 45.0}
+    ))
+    monkeypatch.setattr("settings.SETTINGS_FILE", str(settings_file))
+
+    response = client.post("/api/settings", json={"stable_count": 5, "volatile_count": 10})
+
+    assert response.status_code == 200
+    assert response.json() == {"stable_count": 5, "volatile_count": 10, "variance_percentile": 45.0}
+    assert json.loads(settings_file.read_text())["variance_percentile"] == 45.0
+
+
+@pytest.mark.parametrize("value", [0, -1, 100, 150])
+def test_update_settings_rejects_out_of_range_variance_percentile(tmp_path, monkeypatch, value):
+    settings_file = tmp_path / "settings.json"
+    monkeypatch.setattr("settings.SETTINGS_FILE", str(settings_file))
+
+    response = client.post("/api/settings", json={"variance_percentile": value})
+
+    assert response.status_code == 422
+    assert not settings_file.exists()
+
+
+def test_generate_portfolio_uses_stored_variance_percentile():
+    mock_result = {"evaluation_results": [], "news": [], "sentiment_impacts": [], "portfolio": []}
+    stored = SettingsModel(stable_count=3, volatile_count=6, variance_percentile=45.0)
+
+    with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
+         patch("server.load_settings", return_value=stored):
+        client.post("/api/portfolio/generate")
+
+    mock_gen.assert_called_once_with(stable_count=3, volatile_count=6, variance_percentile=45.0)

@@ -191,3 +191,50 @@ def test_run_command_reports_held_evaluations():
     assert "2 recent portfolio(s)" in output
     assert "evaluated on a later run" in output
     assert "No unevaluated past portfolios found" not in output
+
+
+MINIMAL_RUN_RESULT = {
+    "evaluation_results": [],
+    "news": [],
+    "sentiment_impacts": [],
+    "portfolio": [
+        {"coin": "BTCUSDT", "display_name": "BTC", "type": "Stable", "price": 90000.0, "score": 10.0, "rsi": 50.0, "variance": 0.02},
+    ],
+}
+
+
+def _stored_settings():
+    from settings import SettingsModel
+
+    return SettingsModel(stable_count=4, volatile_count=7, variance_percentile=45.0)
+
+
+def test_run_command_uses_saved_settings_by_default():
+    with patch("main.load_settings", return_value=_stored_settings()), \
+         patch("main.generate_portfolio", AsyncMock(return_value=MINIMAL_RUN_RESULT)) as mock_gen:
+        result = runner.invoke(app, ["run"])
+
+    assert result.exit_code == 0
+    mock_gen.assert_called_once_with(stable_count=4, volatile_count=7, variance_percentile=45.0)
+
+
+def test_run_command_options_override_saved_settings():
+    with patch("main.load_settings", return_value=_stored_settings()), \
+         patch("main.generate_portfolio", AsyncMock(return_value=MINIMAL_RUN_RESULT)) as mock_gen:
+        result = runner.invoke(app, ["run", "--stable", "2", "--variance-percentile", "20"])
+
+    assert result.exit_code == 0
+    mock_gen.assert_called_once_with(stable_count=2, volatile_count=7, variance_percentile=20.0)
+
+
+def test_run_command_rejects_out_of_range_options():
+    with patch("main.load_settings", return_value=_stored_settings()), \
+         patch("main.generate_portfolio", AsyncMock(return_value=MINIMAL_RUN_RESULT)) as mock_gen:
+        for args in (
+            ["run", "--variance-percentile", "0"],
+            ["run", "--variance-percentile", "100"],
+            ["run", "--stable", "51"],
+        ):
+            assert runner.invoke(app, args).exit_code != 0
+
+    mock_gen.assert_not_called()
