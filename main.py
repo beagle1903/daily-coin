@@ -20,6 +20,7 @@ from rich.table import Table
 
 from constants import MIN_EVALUATION_AGE_SECONDS, PORTFOLIO_COUNT_MAX
 from history import load_history
+from formatting import format_price
 from portfolio_service import generate_portfolio
 from settings import load_settings
 
@@ -121,7 +122,7 @@ async def async_run_portfolio(stable_count: int, volatile_count: int, variance_p
         p_table.add_row(
             item["display_name"],
             item["type"],
-            f"${item['price']:.4f}",
+            format_price(item["price"]),
             f"{item['score']:.2f}",
         )
 

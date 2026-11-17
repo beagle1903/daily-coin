@@ -33,6 +33,19 @@ async function getJson(path, fallbackMessage) {
   return res.json()
 }
 
+// Two decimals for magnitudes of 1 or more; below that, 4 significant digits so
+// sub-cent coins (SHIB, PEPE) and their MACD values do not round to 0.
+// Mirrors formatting.format_number on the CLI side.
+function formatNumber(value) {
+  if (!Number.isFinite(value) || value === 0 || Math.abs(value) >= 1) {
+    return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+  return value.toLocaleString(undefined, {
+    minimumSignificantDigits: 4,
+    maximumSignificantDigits: 4,
+  })
+}
+
 function newestFirst(records) {
   return [...records].sort((a, b) => b.timestamp - a.timestamp)
 }
@@ -241,7 +254,7 @@ function App() {
                         </span>
                       </div>
                       <div className="coin-price">
-                        ${coin.price > 1 ? coin.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : coin.price.toFixed(4)}
+                        ${formatNumber(coin.price)}
                       </div>
                       <div className="coin-metrics">
                         <div className="metric-item">
@@ -256,7 +269,7 @@ function App() {
                           <div className="metric-item">
                             <span className="metric-label">MACD</span>
                             <span className="metric-value">
-                              {coin.explanation.macd.toFixed(2)} / {coin.explanation.signal.toFixed(2)}
+                              {formatNumber(coin.explanation.macd)} / {formatNumber(coin.explanation.signal)}
                             </span>
                           </div>
                         )}
