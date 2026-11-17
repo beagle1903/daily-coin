@@ -51,11 +51,6 @@ def test_run_command_success():
             },
             {"coin": "ETHUSDT", "display_name": "ETH", "type": "Volatile", "price": 3000.0, "score": 10.0, "rsi": 50.0, "variance": 0.05},
         ],
-        "scores": {"BTCUSDT": 15.0, "ETHUSDT": 10.0},
-        "prices": {"BTCUSDT": 90000.0, "ETHUSDT": 3000.0},
-        "final_stable": ["BTCUSDT"],
-        "final_volatile": ["ETHUSDT"],
-        "market_data": {},
     }
 
     with patch("main.generate_portfolio", AsyncMock(return_value=mock_portfolio_result)):
@@ -89,11 +84,6 @@ def test_run_command_escapes_rich_markup_in_explanation():
                 },
             },
         ],
-        "scores": {},
-        "prices": {},
-        "final_stable": ["BTCUSDT"],
-        "final_volatile": [],
-        "market_data": {},
     }
 
     with patch("main.generate_portfolio", AsyncMock(return_value=mock_portfolio_result)):
@@ -111,11 +101,6 @@ def test_run_command_skips_why_line_when_explanation_missing():
         "portfolio": [
             {"coin": "BTCUSDT", "display_name": "BTC", "type": "Stable", "price": 90000.0, "score": 15.0, "rsi": 50.0, "variance": 0.02},
         ],
-        "scores": {},
-        "prices": {},
-        "final_stable": ["BTCUSDT"],
-        "final_volatile": [],
-        "market_data": {},
     }
     with patch("main.generate_portfolio", AsyncMock(return_value=mock_portfolio_result)):
         result = runner.invoke(app, ["run", "--stable", "1", "--volatile", "1"])

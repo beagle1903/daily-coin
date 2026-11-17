@@ -130,11 +130,6 @@ def test_generate_portfolio_success():
                 },
             }
         ],
-        "scores": {"BTCUSDT": 15.0},
-        "prices": {"BTCUSDT": 90000.0},
-        "final_stable": ["BTCUSDT"],
-        "final_volatile": [],
-        "market_data": {},
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
@@ -163,11 +158,6 @@ def test_generate_portfolio_with_params():
         "portfolio": [
             {"coin": "ETHUSDT", "display_name": "ETH", "type": "Volatile", "price": 3000.0, "score": 10.0, "rsi": 50.0, "variance": 0.05}
         ],
-        "scores": {},
-        "prices": {},
-        "final_stable": [],
-        "final_volatile": ["ETHUSDT"],
-        "market_data": {},
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
@@ -199,11 +189,6 @@ def test_generate_portfolio_uses_settings_fallback():
         "portfolio": [
             {"coin": "BTCUSDT", "display_name": "BTC", "type": "Stable", "price": 90000.0, "score": 15.0, "rsi": 50.0, "variance": 0.02}
         ],
-        "scores": {"BTCUSDT": 15.0},
-        "prices": {"BTCUSDT": 90000.0},
-        "final_stable": ["BTCUSDT"],
-        "final_volatile": [],
-        "market_data": {},
     }
 
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)) as mock_gen, \
@@ -287,11 +272,6 @@ def test_generate_portfolio_rate_limited():
         "news": [],
         "sentiment_impacts": [],
         "portfolio": [],
-        "scores": {},
-        "prices": {},
-        "final_stable": [],
-        "final_volatile": [],
-        "market_data": {},
     }
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
          patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):

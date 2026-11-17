@@ -17,7 +17,7 @@
 - Settings (#32): `settings.py` is shared by the CLI and the API; `POST /api/settings` is a partial update; `variance_percentile` is bounded; `settings.json` is untracked.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; next come the reductions (#42–#44) and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; next come the reductions (#43, #44; #42 in progress) and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-#28–#32 merged via PRs #46–#50. #33 (sub-cent price and MACD formatting) implemented on branch `issue-33-small-value-formatting` with a PR open (`Closes #33`), not yet merged: `formatting.py` for the CLI, `formatNumber` in `App.jsx`. 138 tests pass, ruff and oxlint clean. Next in the suggested order are the reductions (#42–#44).
+#28–#33 merged via PRs #46–#51. #42 (backend dead code and duplication) implemented on branch `issue-42-backend-dead-code` with a PR open (`Closes #42`), not yet merged. 141 tests pass, ruff clean. Next in the suggested order are #43 (unused Vite template files) and #44 (stale docs).
