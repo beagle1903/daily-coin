@@ -1,9 +1,8 @@
 import asyncio
-import os
 import sys
 
 if sys.platform == "win32":
-    os.system("chcp 65001 >nul")
+    # Rich prints box-drawing characters; make sure stdout can encode them
     try:
         sys.stdout.reconfigure(encoding='utf-8')
     except Exception:
@@ -28,6 +27,16 @@ logging.basicConfig(level=logging.WARNING)
 
 console = Console()
 app = typer.Typer()
+
+def performance_table(title: str, performance: dict) -> Table:
+    """Coin and percentage change for one evaluated portfolio, gains green, losses red."""
+    table = Table(title=title)
+    table.add_column("Coin", style="cyan")
+    table.add_column("Change", justify="right")
+    for coin, p_change in performance.items():
+        color = "green" if p_change > 0 else "red"
+        table.add_row(coin.replace("USDT", ""), f"[{color}]{p_change * 100:.2f}%[/{color}]")
+    return table
 
 async def async_run_portfolio(stable_count: int, volatile_count: int, variance_percentile: float):
     console.print("Checking for previous portfolios to evaluate...")
@@ -54,14 +63,7 @@ async def async_run_portfolio(stable_count: int, volatile_count: int, variance_p
     if evaluation_results:
         console.print(f"Evaluated {len(evaluation_results)} past portfolio(s).")
         for res in evaluation_results:
-            table = Table(title="Past Portfolio Performance")
-            table.add_column("Coin", style="cyan")
-            table.add_column("Change", justify="right")
-
-            for coin, p_change in res["performance"].items():
-                color = "green" if p_change > 0 else "red"
-                pct = f"{p_change * 100:.2f}%"
-                table.add_row(coin.replace("USDT", ""), f"[{color}]{pct}[/{color}]")
+            table = performance_table("Past Portfolio Performance", res["performance"])
             console.print(table)
     elif is_mock:
         console.print("Past portfolios are not evaluated against mock prices.")
@@ -190,14 +192,7 @@ def show_history():
         
     for record in evaluated:
         dt = datetime.fromtimestamp(record["timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
-        table = Table(title=f"Portfolio from {dt}")
-        table.add_column("Coin", style="cyan")
-        table.add_column("Change", justify="right")
-        
-        for coin, p_change in record["performance"].items():
-            color = "green" if p_change > 0 else "red"
-            pct = f"{p_change * 100:.2f}%"
-            table.add_row(coin.replace("USDT", ""), f"[{color}]{pct}[/{color}]")
+        table = performance_table(f"Portfolio from {dt}", record["performance"])
         console.print(table)
         console.print("")
 @app.command(name="serve")

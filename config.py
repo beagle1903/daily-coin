@@ -7,7 +7,6 @@ load_dotenv()
 
 BINANCE_API_KEY = os.getenv("BINANCE_API_KEY")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET")
-DAILY_COIN_API_KEY = os.getenv("DAILY_COIN_API_KEY")
 
 if not BINANCE_API_KEY or not BINANCE_API_SECRET:
     logging.warning(
@@ -16,4 +15,5 @@ if not BINANCE_API_KEY or not BINANCE_API_SECRET:
 
 
 def get_daily_coin_api_key() -> str:
+    # Read on every call so tests and a changed environment take effect
     return os.getenv("DAILY_COIN_API_KEY") or ""

@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import logging
+import random
 import time as _time
 
 import numpy as np
@@ -128,7 +129,6 @@ def _get_mock_prices(symbols):
         "UNIUSDT": 11.25, "ATOMUSDT": 8.12, "SUIUSDT": 3.05, "PEPEUSDT": 0.0000142,
         "WIFUSDT": 3.15, "FLOKIUSDT": 0.000175, "BONKUSDT": 0.0000272, "HYPEUSDT": 14.85
     }
-    import random
     return {s: mock_prices.get(s, random.uniform(1.0, 50.0)) for s in symbols}
 
 def get_current_prices(symbols):
@@ -168,9 +168,7 @@ def calculate_rsi(closes, period=RSI_PERIOD):
     diffs = np.diff(arr)
     gains = np.where(diffs > 0, diffs, 0.0)
     losses = np.where(diffs < 0, -diffs, 0.0)
-    
-    if period == 0: return 50.0
-    
+
     avg_gain = np.mean(gains[:period])
     avg_loss = np.mean(losses[:period])
     
@@ -215,7 +213,6 @@ async def fetch_all_market_data(symbols, max_retries=3):
         return cached
 
     def get_mock_data():
-        import random
         return {
             s: {"rsi": random.uniform(30.0, 70.0), "variance": random.uniform(0.01, 0.15), "macd": 0.0, "signal": 0.0}
             for s in symbols

@@ -1,25 +1,10 @@
 import json
 import os
 import time
-from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from filelock import FileLock
 
-class HistoryRepository(ABC):
-    @abstractmethod
-    def load_history(self) -> List[Dict[str, Any]]:
-        pass
-
-    @abstractmethod
-    def save_history(self, history: List[Dict[str, Any]]) -> None:
-        pass
-
-    def clean_old_history_in_memory(self, history: List[Dict[str, Any]], ttl_seconds: int) -> List[Dict[str, Any]]:
-        now = time.time()
-        return [record for record in history if now - record.get("timestamp", 0) <= ttl_seconds]
-
-
-class JsonHistoryRepository(HistoryRepository):
+class JsonHistoryRepository:
     def __init__(self, file_path: str = "history.json", ttl_seconds: int = 30 * 24 * 60 * 60):
         self.file_path = file_path
         self.lock_path = f"{file_path}.lock"
@@ -41,6 +26,10 @@ class JsonHistoryRepository(HistoryRepository):
             with open(temp_path, "w") as f:
                 json.dump(history, f, indent=2)
             os.replace(temp_path, self.file_path)
+
+    def clean_old_history_in_memory(self, history: List[Dict[str, Any]], ttl_seconds: int) -> List[Dict[str, Any]]:
+        now = time.time()
+        return [record for record in history if now - record.get("timestamp", 0) <= ttl_seconds]
 
 # Default global instance for backward compatibility with current function signatures
 _default_repo = JsonHistoryRepository()

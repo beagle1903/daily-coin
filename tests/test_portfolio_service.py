@@ -273,3 +273,49 @@ def test_new_record_stores_picks_for_the_dashboard(tmp_path, monkeypatch):
     saved = json.loads(history_file.read_text())
     assert saved[-1]["picks"] == result["portfolio"]
     assert saved[-1]["picks"][0]["explanation"]["summary"]
+
+
+def test_fill_bucket_replaces_unpriced_pick_with_best_scoring_candidate():
+    from portfolio_service import _fill_bucket
+
+    scores = {"A": 20.0, "B": 15.0, "C": 12.0, "D": 18.0}
+    prices = {"A": 0.0, "B": 1.0, "C": 1.0, "D": 0.0}
+
+    # A has no price; D scores higher than B and C but has no price either
+    assert _fill_bucket(["A", "C"], ["A", "B", "C", "D"], 2, prices, scores) == ["B", "C"]
+
+
+def test_fill_bucket_keeps_priced_picks_and_sorts_by_score():
+    from portfolio_service import _fill_bucket
+
+    scores = {"A": 5.0, "B": 9.0, "C": 7.0}
+    prices = {"A": 1.0, "B": 1.0, "C": 1.0}
+
+    assert _fill_bucket(["A", "B"], ["A", "B", "C"], 2, prices, scores) == ["B", "A"]
+    assert _fill_bucket(["A"], ["A", "B", "C"], 5, prices, scores) == ["B", "C", "A"]
+
+
+def test_unpriced_pick_is_replaced_in_the_pipeline(tmp_path, monkeypatch):
+    """A sampled coin with no price is swapped for another candidate from the same bucket."""
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [])
+    market = {
+        "BTCUSDT": {"variance": 0.01, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+        "ETHUSDT": {"variance": 0.02, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+        "SOLUSDT": {"variance": 0.10, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+        "XRPUSDT": {"variance": 0.12, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+    }
+    prices = {"BTCUSDT": 0.0, "ETHUSDT": 3000.0, "SOLUSDT": 150.0, "XRPUSDT": 1.5}
+
+    with patch("portfolio_service.get_tradeable_symbols", return_value=list(market)), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])), \
+         patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value=market)), \
+         patch("portfolio_service.get_current_prices", side_effect=lambda symbols: {s: prices[s] for s in symbols}), \
+         patch("portfolio_service.pick_portfolio", return_value=(["BTCUSDT"], ["SOLUSDT"])):
+        result = asyncio.run(
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
+        )
+
+    by_type = {item["type"]: item["coin"] for item in result["portfolio"]}
+    assert by_type == {"Stable": "ETHUSDT", "Volatile": "SOLUSDT"}
+    assert all(item["price"] > 0 for item in result["portfolio"])
