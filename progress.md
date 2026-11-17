@@ -17,7 +17,7 @@
 - Settings (#32): `settings.py` is shared by the CLI and the API; `POST /api/settings` is a partial update; `variance_percentile` is bounded; `settings.json` is untracked.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; next come the reductions (#43, #44; #42 in progress) and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; next come the reductions (#44; #42 done, #43 in progress) and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-#28–#33 merged via PRs #46–#51. #42 (backend dead code and duplication) implemented on branch `issue-42-backend-dead-code` with a PR open (`Closes #42`), not yet merged. 141 tests pass, ruff clean. Next in the suggested order are #43 (unused Vite template files) and #44 (stale docs).
+#28–#33 and #42 merged via PRs #46–#52. #43 (unused Vite template files) implemented on branch `issue-43-unused-vite-files` with a PR open (`Closes #43`), not yet merged: template assets and `@types/react*` removed, `frontend/README.md` rewritten; `npm run build` and oxlint pass. Next in the suggested order is #44 (stale docs and duplicated command lists).
