@@ -28,12 +28,4 @@
 - **Heuristic Feedback Loop:** The app "learns" by keeping a rotating 30-day memory of its past picks, applying percentage gain/loss adjustments to the baseline scores (capped in `logic.py`).
 
 ## Development & Execution Commands
-- **Activate Virtual Environment (Windows):** `venv\Scripts\activate`
-- **Install Dependencies:** `pip install -r requirements.txt`
-- **Run the CLI Application:** `.\venv\Scripts\python.exe main.py run` (or `python main.py run` after activating venv)
-- **Run the History Command:** `.\venv\Scripts\python.exe main.py history`
-- **Run the API Server:** `.\venv\Scripts\python.exe main.py serve`
-- **Run the Frontend:** `npm run dev` in `frontend/`
-- **Run Tests:** `.\venv\Scripts\python.exe -m pytest`
-- **Lint:** `.\venv\Scripts\python.exe -m ruff check .`
-- **Docker Desktop (Windows 11):** `docker compose up --build` — API `http://localhost:8000`, frontend `http://localhost:5173`. See `docs/local-docker.md`.
+See the [README](../README.md) for setup, running the CLI and web app, tests and lint, and [local-docker.md](local-docker.md) for Docker Desktop.

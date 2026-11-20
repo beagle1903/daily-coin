@@ -4,7 +4,7 @@
 
 ## Current Status
 - CLI (`main.py`), shared portfolio service, FastAPI backend (`server.py`), and Vite + React dashboard (`frontend/`) are implemented.
-- P0–P2 findings in `reviews/SUMMARY.md` are largely done. Remaining product items are GitHub issues, not local task files.
+- The 2026-08 code review (`reviews/`, removed in #44) is fully addressed; remaining work is in GitHub issues, not local task files.
 - History TTL in code is 30 days (`history.py`). Default portfolio size is 3 stable + 6 volatile.
 - GitHub Actions CI (`.github/workflows/ci.yml`) runs ruff and pytest on PRs and pushes to `main`.
 - Local Docker workspace and Cloud Agent environment setup are on `main`.
@@ -17,7 +17,7 @@
 - Settings (#32): `settings.py` is shared by the CLI and the API; `POST /api/settings` is a partial update; `variance_percentile` is bounded; `settings.json` is untracked.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; next come the reductions (#44; #42 done, #43 in progress) and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions #42 and #43 are done and #44 is in progress; the enhancements (#34–#41) remain and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-#28–#33 and #42 merged via PRs #46–#52. #43 (unused Vite template files) implemented on branch `issue-43-unused-vite-files` with a PR open (`Closes #43`), not yet merged: template assets and `@types/react*` removed, `frontend/README.md` rewritten; `npm run build` and oxlint pass. Next in the suggested order is #44 (stale docs and duplicated command lists).
+#28–#33, #42 and #43 merged via PRs #46–#53. #44 (stale docs) implemented on branch `issue-44-prune-stale-docs` with a PR open (`Closes #44`), not yet merged: `reviews/`, the shipped pick-explanation plan and spec, and `setup.sh` removed; ADR 007 added; README is the only command reference. Next suggested ticket: #34 (blocking I/O and concurrent runs) or #39 (CI for the frontend).
