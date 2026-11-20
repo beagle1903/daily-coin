@@ -6,18 +6,7 @@ Start with `AGENTS.md`: it is the canonical agent map (read order for `docs/`, `
 
 ## Commands
 
-On Windows use the venv interpreter directly (raw `pytest` causes import path errors):
-
-```bash
-.\venv\Scripts\python.exe -m pytest                              # all tests
-.\venv\Scripts\python.exe -m pytest tests/test_logic.py::test_x  # single test
-.\venv\Scripts\python.exe -m ruff check .                        # lint (CI runs ruff + pytest)
-.\venv\Scripts\python.exe main.py run                            # CLI: generate portfolio
-.\venv\Scripts\python.exe main.py history                        # CLI: past performance
-.\venv\Scripts\python.exe main.py serve                          # API on http://127.0.0.1:8000
-cd frontend && npm install && npm run dev                        # dashboard on http://localhost:5173
-docker compose up --build                                        # both, in one Linux container
-```
+All commands are in the [README](README.md) (setup, CLI, web app, Docker, tests and lint). On Windows call the venv interpreter directly, for example `.\venv\Scripts\python.exe -m pytest`; a bare `pytest` causes import errors.
 
 `.env` (see `.env.example`) needs `BINANCE_API_KEY`/`BINANCE_API_SECRET` and the same value in `DAILY_COIN_API_KEY` and `VITE_DAILY_COIN_API_KEY`. Without Binance keys the client falls back to mock data.
 

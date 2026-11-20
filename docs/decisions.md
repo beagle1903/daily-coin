@@ -29,3 +29,8 @@
 **Context:** The Antigravity `tasks.json` queue went stale (including leftover work from an unrelated CLI) and did not give humans a shared backlog or review gate.
 **Decision:** Track work in GitHub Issues. Each ticket is a brief summary plus links to markdown docs (the source of truth). Land each ticket on a branch via a pull request. Keep `AGENTS.md` and `docs/` as the agent/product source of truth; keep `progress.md` as a short last-session handoff only.
 **Consequences:** Agents pick one open issue (`gh issue list --state open`), branch as `issue-N-short-slug`, and open a PR that says `Closes #N`. CI (pytest + ruff) must pass before merge. Do not commit ticket work directly to `main`.
+
+## 007 - Pick explanations come from the scoring pass
+**Context:** Users could not see why a coin was picked. Shipped in #19; the long design spec and implementation plan were removed in #44 (they remain in git history).
+**Decision:** `load_coin_scores` returns a per-coin breakdown (base, history, news, RSI, MACD) from the same pass that produces the scores, and `compute_bucket_stats` adds rank and average within the coin's variance bucket. `format_pick_explanation` turns that into a templated paragraph; there is no second ranking path and no LLM. `pick_portfolio` still samples by weight, so the text says a pick was sampled, not that it was the top score.
+**Consequences:** CLI and dashboard show the same fields and wording. The spec kept explanations out of `history.json`; since #30 the newest history record stores the full picks (including explanations) so the dashboard can show the last saved portfolio without generating a new one.

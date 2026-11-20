@@ -1,7 +1,7 @@
-# Product Context (Crypto Portfolio CLI)
+# Product Context (Daily Coin)
 
 ## Vision
-To provide a fast, command-line tool that generates a cryptocurrency portfolio of 9 coins (6 volatile, 3 stable) using the Binance API, and features a heuristic feedback loop to "learn" from its previous picks.
+To provide a fast way to generate a cryptocurrency portfolio (3 stable and 6 volatile coins by default) from Binance market data, with a heuristic feedback loop that "learns" from previous picks. It runs as a command-line tool (`main.py`) and as a web dashboard backed by a local FastAPI server; both use the same pipeline and history.
 
 ## Target Users
 - **Crypto Traders / Hobbyists:** Need a continuously updated set of recommended coins split between high variance and low variance.

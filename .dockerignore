@@ -8,6 +8,5 @@ frontend/node_modules
 *.json.lock
 history.json
 .env
-reviews
 .cursor
 settings.json

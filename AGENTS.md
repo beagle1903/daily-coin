@@ -1,6 +1,6 @@
 # Agent Instructions
 
-You are an AI coding agent assigned to build and maintain the `daily-coin` CLI.
+You are an AI coding agent assigned to build and maintain `daily-coin`: a Python CLI, a FastAPI backend and a React dashboard.
 
 **Follow this progressive disclosure map for context:**
 1. **Domain & Rules:** Read `docs/context.md` to understand the portfolio generation rules and user flows.
@@ -17,10 +17,9 @@ You are an AI coding agent assigned to build and maintain the `daily-coin` CLI.
 - Do not write implementation details in this file. Keep it as a short map/router.
 - Always check for dead code and ensure documentation (like `progress.md`) is updated after making code changes.
 
-**Quick Command Reference:**
-- **Run the CLI Application:** `.\venv\Scripts\python.exe main.py run` (or `python main.py run` inside activated venv)
-- **Run tests:** `.\venv\Scripts\python.exe -m pytest` (do NOT run raw `pytest` outside python wrapper, or import path errors will occur)
-- **Lint:** `.\venv\Scripts\python.exe -m ruff check .`
-- **Shortcut `/run`**: Run the app and print the portfolio (equivalent to `.\venv\Scripts\python.exe main.py run`).
-- **Shortcut `/run-fe`**: Start both the backend API server (`.\venv\Scripts\python.exe main.py serve`) and frontend development server (`npm run dev` in the `frontend` directory), then print the application link in the chat.
-- **Shortcut `/m&p`**: Commit, push, and open or update a pull request for the current ticket branch. Do not merge ticket work straight to `main`.
+**Commands:** See the [README](README.md); it is the only command reference. On Windows use `.\venv\Scripts\python.exe -m pytest` rather than a bare `pytest`.
+
+**Shortcuts** (skills in `.agents/skills/`):
+- **`/run`**: Run the CLI and print the portfolio.
+- **`/run-fe`**: Start the API and the dashboard dev server, then print the dashboard link.
+- **`/m&p`**: Commit, push, and open or update a pull request for the current ticket branch. Do not merge ticket work straight to `main`.

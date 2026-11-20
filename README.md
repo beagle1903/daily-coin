@@ -1,6 +1,6 @@
-# Daily Coin (Crypto Portfolio CLI)
+# Daily Coin
 
-A Python CLI (with an optional web dashboard) that generates a cryptocurrency portfolio of 9 coins by default (6 volatile, 3 stable) and learns from past performance.
+A Python CLI and web dashboard that generate a cryptocurrency portfolio of 9 coins by default (6 volatile, 3 stable) and learns from past performance.
 
 ## Features
 - **Heuristic Feedback Loop**: Learns from previous portfolio performance. Coins that gain value are rewarded; coins that lose value are penalized in future selections.
@@ -32,15 +32,10 @@ docker compose up --build
 Open [http://localhost:5173](http://localhost:5173). Full steps: [docs/local-docker.md](docs/local-docker.md).
 
 ## Setup
-Run the setup script to create a virtual environment and install dependencies:
-```bash
-./setup.sh
-```
-
-On Windows you can also create the venv and install manually:
+Create a virtual environment and install the dependencies:
 ```bash
 python -m venv venv
-venv\Scripts\activate
+venv\Scripts\activate        # Windows; on macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -87,7 +82,10 @@ npm run dev
 
 ## Tests and lint
 ```bash
-python -m pytest
-python -m ruff check .
+python -m pytest                              # all tests
+python -m pytest tests/test_logic.py::test_x  # one test
+python -m ruff check .                        # lint (CI runs ruff + pytest)
+cd frontend && npm run lint                   # frontend lint (oxlint)
 ```
-On Windows without an activated venv, use `.\venv\Scripts\python.exe -m pytest` (do not run raw `pytest`).
+
+On Windows without an activated venv, call the venv interpreter directly, for example `.\venv\Scripts\python.exe -m pytest` or `.\venv\Scripts\python.exe main.py run`. Do not run a bare `pytest`: it can pick up a different Python and fail on imports.
