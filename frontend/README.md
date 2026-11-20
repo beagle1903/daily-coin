@@ -1,16 +1,14 @@
-# React + Vite
+# Daily Coin dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite + React single-page app for the Daily Coin API. The whole UI is in `src/App.jsx`.
 
-Currently, two official plugins are available:
+```bash
+npm install
+npm run dev     # http://localhost:5173
+npm run lint    # oxlint
+npm run build
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The dashboard calls the API at `http://127.0.0.1:8000/api`, so start it first with `python main.py serve` from the repository root. Set `VITE_DAILY_COIN_API_KEY` to the same value as the API's `DAILY_COIN_API_KEY`.
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Setup, the API key model and the Docker workflow are described in the [root README](../README.md).
