@@ -2,6 +2,7 @@
 Shared portfolio generation service used by both CLI (main.py) and API (server.py).
 """
 import asyncio
+import weakref
 
 from constants import DEFAULT_VARIANCE_PERCENTILE, MIN_EVALUATION_AGE_SECONDS, NEWS_LIMIT
 from binance_client import (
@@ -10,7 +11,7 @@ from binance_client import (
     get_tradeable_symbols,
     mock_serve_count,
 )
-from history import add_portfolio_record, get_unevaluated_records, load_history, save_history
+from history import get_unevaluated_records, load_history, record_run
 from logic import (
     compute_bucket_stats,
     evaluate_performance,
@@ -36,7 +37,33 @@ def _fill_bucket(picks, candidates, count, prices, scores):
     return sorted(filled, key=lambda coin: scores[coin], reverse=True)
 
 
+# One lock per event loop. A module-level asyncio.Lock would be tied to the first
+# loop that waits on it, and the CLI and the tests each run their own loop.
+_run_locks: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _run_lock() -> asyncio.Lock:
+    loop = asyncio.get_running_loop()
+    lock = _run_locks.get(loop)
+    if lock is None:
+        lock = _run_locks[loop] = asyncio.Lock()
+    return lock
+
+
 async def generate_portfolio(stable_count: int, volatile_count: int, variance_percentile: float = DEFAULT_VARIANCE_PERCENTILE):
+    """
+    Runs the pipeline. Runs in the same process are serialized: a second request
+    waits for the first to finish, so each run sees the history the previous one
+    saved. Runs in different processes (the CLI next to the API) are kept
+    consistent by the single locked history write in ``history.record_run``.
+    """
+    async with _run_lock():
+        return await _generate_portfolio(stable_count, volatile_count, variance_percentile)
+
+
+async def _generate_portfolio(stable_count: int, volatile_count: int, variance_percentile: float):
     """
     Full portfolio generation pipeline:
     1. Load history once
@@ -44,6 +71,11 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     3. Fetch symbols, news, market data concurrently
     4. Score, pick, and verify prices
     5. Persist and return results
+
+    Binance and file calls are blocking, so they run in worker threads and the
+    event loop stays free to answer other API requests meanwhile. History is
+    written once, at the end of the run: the evaluated records and the new record
+    together.
 
     If Binance was unavailable and any step fell back to mock data, the run is
     display-only: past records are not evaluated against mock prices, the new
@@ -62,16 +94,22 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
         return mock_serve_count() != mock_mark
 
     # 1. Load history once
-    history = load_history()
+    history = await asyncio.to_thread(load_history)
     # Only records past the minimum holding time are evaluated; younger ones stay pending
     unevaluated = get_unevaluated_records(
         history=history, min_age_seconds=MIN_EVALUATION_AGE_SECONDS
     )
     held_evaluations = len(get_unevaluated_records(history=history)) - len(unevaluated)
     evaluation_results = []
+    # Evaluated performance by record timestamp, saved with the run's other changes
+    performance_by_timestamp = {}
+
+    async def save(portfolio=None, prices=None, picks=None):
+        if performance_by_timestamp or portfolio is not None:
+            await asyncio.to_thread(record_run, performance_by_timestamp, portfolio, prices, picks)
 
     # 2. Get tradeable symbols
-    valid_symbols = get_tradeable_symbols(limit=100)
+    valid_symbols = await asyncio.to_thread(get_tradeable_symbols, limit=100)
     if not valid_symbols:
         return {"error": "Could not fetch valid symbols from Binance."}
 
@@ -80,12 +118,13 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
         for record in unevaluated:
             all_coins.update(record["portfolio"])
 
-        current_prices = get_current_prices(list(all_coins))
+        current_prices = await asyncio.to_thread(get_current_prices, list(all_coins))
         # Records stay pending if the prices came from the mock fallback
         if not used_mock():
             updated_history, results = evaluate_performance(unevaluated, current_prices, history, valid_symbols)
-            save_history(updated_history)
             evaluation_results = results
+            performance_by_timestamp = {r["timestamp"]: r["performance"] for r in results}
+            # Score this run with the new results; they are saved at the end
             history = updated_history
 
     # 3. Fetch news and market data concurrently
@@ -104,6 +143,7 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
         key=lambda x: market_data[x]["variance"]
     )
     if not sorted_symbols:
+        await save()
         return {"error": "No valid market data retrieved from Binance."}
 
     threshold_idx = max(1, int(len(sorted_symbols) * (variance_percentile / 100.0)))
@@ -123,16 +163,17 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
     # 6. Keep picks that have a non-zero price; top each bucket up from the
     #    remaining candidates by score
     picked = set(stable_picks + volatile_picks)
-    prices = get_current_prices(stable_picks + volatile_picks)
+    prices = await asyncio.to_thread(get_current_prices, stable_picks + volatile_picks)
     remaining = [s for s in universe if s not in picked]
     if remaining:
-        prices.update(get_current_prices(remaining))
+        prices.update(await asyncio.to_thread(get_current_prices, remaining))
 
     final_stable = _fill_bucket(stable_picks, available_stable, stable_count, prices, scores)
     final_volatile = _fill_bucket(volatile_picks, available_volatile, volatile_count, prices, scores)
     final_portfolio = final_stable + final_volatile
 
     if not final_portfolio:
+        await save()
         return {"error": "Could not find any coins with non-zero prices."}
 
     is_mock = used_mock()
@@ -167,8 +208,10 @@ async def generate_portfolio(stable_count: int, volatile_count: int, variance_pe
             "explanation": explanation,
         })
 
-    if not is_mock:
-        add_portfolio_record(final_portfolio, prices, picks=portfolio_items)
+    if is_mock:
+        await save()
+    else:
+        await save(final_portfolio, prices, portfolio_items)
 
     return {
         "evaluation_results": evaluation_results,
