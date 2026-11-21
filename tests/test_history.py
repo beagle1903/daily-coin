@@ -83,3 +83,48 @@ def test_add_portfolio_record_without_picks(tmp_path, monkeypatch):
     add_portfolio_record(["BTCUSDT"], {"BTCUSDT": 1.0})
 
     assert "picks" not in load_history()[0]
+
+
+def test_record_run_saves_evaluations_and_new_record_together(tmp_path, monkeypatch):
+    from history import record_run
+
+    _use_tmp_history(tmp_path, monkeypatch)
+    old = {"timestamp": time.time() - 7200, "portfolio": ["BTCUSDT"],
+           "entry_prices": {"BTCUSDT": 1.0}, "evaluated": False, "picks": [{"coin": "BTCUSDT"}]}
+    save_history([old])
+
+    record_run({old["timestamp"]: {"BTCUSDT": 0.1}}, ["ETHUSDT"], {"ETHUSDT": 2.0}, [{"coin": "ETHUSDT"}])
+
+    saved = load_history()
+    assert len(saved) == 2
+    assert saved[0]["evaluated"] is True
+    assert saved[0]["performance"] == {"BTCUSDT": 0.1}
+    assert "picks" not in saved[0]
+    assert saved[1]["portfolio"] == ["ETHUSDT"]
+    assert saved[1]["picks"] == [{"coin": "ETHUSDT"}]
+
+
+def test_record_run_does_not_overwrite_an_earlier_evaluation(tmp_path, monkeypatch):
+    """If two runs evaluated the same record, the first saved result wins."""
+    from history import record_run
+
+    _use_tmp_history(tmp_path, monkeypatch)
+    ts = time.time() - 7200
+    save_history([{"timestamp": ts, "portfolio": ["BTCUSDT"], "entry_prices": {"BTCUSDT": 1.0},
+                   "evaluated": True, "performance": {"BTCUSDT": 0.1}}])
+
+    record_run({ts: {"BTCUSDT": -0.5}})
+
+    assert load_history()[0]["performance"] == {"BTCUSDT": 0.1}
+
+
+def test_record_run_with_nothing_to_add_keeps_history(tmp_path, monkeypatch):
+    from history import record_run
+
+    _use_tmp_history(tmp_path, monkeypatch)
+    record = {"timestamp": time.time(), "portfolio": ["BTCUSDT"], "entry_prices": {}, "evaluated": False}
+    save_history([record])
+
+    record_run({})
+
+    assert load_history() == [record]

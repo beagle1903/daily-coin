@@ -17,7 +17,7 @@
 - Settings (#32): `settings.py` is shared by the CLI and the API; `POST /api/settings` is a partial update; `variance_percentile` is bounded; `settings.json` is untracked.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions #42 and #43 are done and #44 is in progress; the enhancements (#34–#41) remain and the remaining enhancements. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions (#42–#44) are done; of the enhancements, #34 is in progress and #35–#41 remain. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
-#28–#33, #42 and #43 merged via PRs #46–#53. #44 (stale docs) implemented on branch `issue-44-prune-stale-docs` with a PR open (`Closes #44`), not yet merged: `reviews/`, the shipped pick-explanation plan and spec, and `setup.sh` removed; ADR 007 added; README is the only command reference. Next suggested ticket: #34 (blocking I/O and concurrent runs) or #39 (CI for the frontend).
+#28–#33 and #42–#44 merged via PRs #46–#54. #34 (blocking I/O and concurrent runs) implemented on branch `issue-34-pipeline-concurrency` with a PR open (`Closes #34`), not yet merged: runs serialized per process, blocking calls in worker threads, one locked history write per run (`history.record_run`). 148 tests pass, ruff clean. Next suggested ticket: #39 (CI for the frontend).

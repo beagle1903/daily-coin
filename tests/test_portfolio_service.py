@@ -40,7 +40,7 @@ def test_generate_portfolio_attaches_explanation():
          patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value=market_data)), \
          patch("portfolio_service.analyze_news_impact", return_value=[]), \
          patch("portfolio_service.get_current_prices", return_value=prices), \
-         patch("portfolio_service.add_portfolio_record"):
+         patch("portfolio_service.record_run"):
         result = asyncio.run(
             generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
         )
@@ -319,3 +319,121 @@ def test_unpriced_pick_is_replaced_in_the_pipeline(tmp_path, monkeypatch):
     by_type = {item["type"]: item["coin"] for item in result["portfolio"]}
     assert by_type == {"Stable": "ETHUSDT", "Volatile": "SOLUSDT"}
     assert all(item["price"] > 0 for item in result["portfolio"])
+
+
+def _two_coin_patches(prices, delay=0.0):
+    """Pipeline patches for a two-coin universe. ``delay`` slows the market-data fetch."""
+    market = dict(TWO_COIN_MARKET)
+
+    async def slow_market_data(symbols):
+        await asyncio.sleep(delay)
+        return market
+
+    return [
+        patch("portfolio_service.get_tradeable_symbols", return_value=list(market)),
+        patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])),
+        patch("portfolio_service.fetch_all_market_data", side_effect=slow_market_data),
+        patch("portfolio_service.get_current_prices", side_effect=lambda symbols: {s: prices[s] for s in symbols}),
+    ]
+
+
+def test_concurrent_runs_evaluate_each_record_once_and_keep_every_new_record(tmp_path, monkeypatch):
+    """Two overlapping runs in one process: no double evaluation, no lost record."""
+    import json
+    from contextlib import ExitStack
+
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record()])
+
+    async def two_runs():
+        return await asyncio.gather(
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0),
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0),
+        )
+
+    with ExitStack() as stack:
+        for p in _two_coin_patches({"BTCUSDT": 55000.0, "ETHUSDT": 1900.0}, delay=0.05):
+            stack.enter_context(p)
+        first, second = asyncio.run(two_runs())
+
+    assert len(first["evaluation_results"]) + len(second["evaluation_results"]) == 1
+    saved = json.loads(history_file.read_text())
+    assert len(saved) == 3
+    assert [r["evaluated"] for r in saved] == [True, False, False]
+    assert sum("picks" in r for r in saved) == 1
+    assert "picks" in saved[-1]
+
+
+def test_evaluation_is_saved_even_when_the_run_fails_later(tmp_path, monkeypatch):
+    import json
+
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record()])
+
+    with patch("portfolio_service.get_tradeable_symbols", return_value=["BTCUSDT", "ETHUSDT"]), \
+         patch("portfolio_service.get_latest_news", AsyncMock(return_value=[])), \
+         patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value={})), \
+         patch("portfolio_service.get_current_prices", return_value={"BTCUSDT": 55000.0, "ETHUSDT": 1900.0}):
+        result = asyncio.run(generate_portfolio(stable_count=1, volatile_count=1))
+
+    assert result == {"error": "No valid market data retrieved from Binance."}
+    saved = json.loads(history_file.read_text())
+    assert len(saved) == 1
+    assert saved[0]["evaluated"] is True
+
+
+def test_history_is_written_once_per_run(tmp_path, monkeypatch):
+    import history as history_module
+
+    history_file = tmp_path / "history.json"
+    _use_history_file(monkeypatch, history_file, [_pending_record()])
+    real_update = history_module._default_repo.update
+    writes = []
+
+    def counting_update(mutate):
+        writes.append(1)
+        real_update(mutate)
+
+    monkeypatch.setattr(history_module._default_repo, "update", counting_update)
+
+    _run_two_coin_pipeline({"BTCUSDT": 55000.0, "ETHUSDT": 1900.0})
+
+    assert len(writes) == 1
+
+
+def test_blocking_calls_run_off_the_event_loop(tmp_path, monkeypatch):
+    """While Binance price calls block, other coroutines on the loop keep running."""
+    import threading
+    import time as time_module
+    from contextlib import ExitStack
+
+    _use_history_file(monkeypatch, tmp_path / "history.json", [])
+    loop_threads = set()
+
+    def slow_prices(symbols):
+        loop_threads.add(threading.current_thread() is threading.main_thread())
+        time_module.sleep(0.2)
+        return {s: 1.0 for s in symbols}
+
+    async def run_with_heartbeat():
+        ticks = 0
+
+        async def heartbeat():
+            nonlocal ticks
+            while True:
+                await asyncio.sleep(0.01)
+                ticks += 1
+
+        beat = asyncio.create_task(heartbeat())
+        await generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
+        beat.cancel()
+        return ticks
+
+    with ExitStack() as stack:
+        for p in _two_coin_patches({})[:3]:
+            stack.enter_context(p)
+        stack.enter_context(patch("portfolio_service.get_current_prices", side_effect=slow_prices))
+        ticks = asyncio.run(run_with_heartbeat())
+
+    assert loop_threads == {False}
+    assert ticks >= 10
