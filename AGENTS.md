@@ -21,5 +21,6 @@ You are an AI coding agent assigned to build and maintain `daily-coin`: a Python
 
 **Shortcuts** (skills in `.agents/skills/`):
 - **`/run`**: Run the CLI and print the portfolio.
+- **`/run-cli`**: Run the CLI and show the results (past performance, sentiment, new portfolio). Lives in `.claude/skills/run-cli/` for Claude Code.
 - **`/run-fe`**: Start the API and the dashboard dev server, then print the dashboard link.
 - **`/m&p`**: Commit, push, and open or update a pull request for the current ticket branch. Do not merge ticket work straight to `main`.
