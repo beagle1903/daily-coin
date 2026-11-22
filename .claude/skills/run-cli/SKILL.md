@@ -8,9 +8,9 @@ Run the portfolio generator for real and report what it printed. Do not run pyte
 
 ## Steps
 
-1. Run from the repo root with the venv interpreter (a bare `python` can hit import errors on Windows):
+1. Run from the repo root with the venv interpreter (a bare `python` can hit import errors on Windows). This skill is Windows-only by choice: it assumes the `venv\Scripts\` layout. On Linux or macOS the interpreter is `venv/bin/python`, so adjust the path.
    - PowerShell: `.\venv\Scripts\python.exe main.py run`
-   - Bash: `./venv/Scripts/python.exe main.py run`
+   - Git Bash on Windows: `./venv/Scripts/python.exe main.py run`
 2. Wait for it to exit. It fetches news and market data, so it can take a while. Check the exit code.
 3. Show the results in your reply, not just "it worked":
    - Past portfolio performance (if one was evaluated): coin and change %.
