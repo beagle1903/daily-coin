@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from server import app, SettingsModel
+from server import SettingsModel, app
 
 TEST_API_KEY = "test-api-key"
 AUTH_HEADERS = {"X-API-Key": TEST_API_KEY}

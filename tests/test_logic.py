@@ -1,5 +1,13 @@
 import pytest
-from logic import load_coin_scores, pick_portfolio, evaluate_performance, compute_bucket_stats, format_pick_explanation
+
+from logic import (
+    compute_bucket_stats,
+    evaluate_performance,
+    format_pick_explanation,
+    load_coin_scores,
+    pick_portfolio,
+)
+
 
 def test_load_coin_scores():
     universe = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]

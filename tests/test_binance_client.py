@@ -1,13 +1,15 @@
 import asyncio
 from unittest.mock import AsyncMock, patch
+
 from binance_client import (
-    calculate_rsi, 
-    calculate_macd, 
-    fetch_all_market_data, 
-    get_sync_client, 
-    get_current_prices, 
-    get_tradeable_symbols
+    calculate_macd,
+    calculate_rsi,
+    fetch_all_market_data,
+    get_current_prices,
+    get_sync_client,
+    get_tradeable_symbols,
 )
+
 
 def test_calculate_rsi_short_list():
     closes = [100.0] * 10

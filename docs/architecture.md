@@ -1,13 +1,13 @@
 # Architecture Blueprint
 
 ## System Overview
-- **Language:** Python 3.10+
+- **Language:** Python 3.10+ (the minimum; CI tests 3.10 and 3.12, and the Docker image uses 3.12)
 - **CLI Framework:** Typer (with Rich for terminal formatting)
 - **API:** FastAPI (`server.py`) served via `python main.py serve`
 - **Frontend:** Vite + React SPA in `frontend/`
 - **Data Integration:** `python-binance` for market prices.
 - **News Integration:** `feedparser` for RSS aggregation, `vaderSentiment` for NLP sentiment analysis.
-- **Quality:** pytest, ruff, GitHub Actions CI on pull requests and pushes to `main`.
+- **Quality:** pytest, ruff (`E`, `F`, `I`, `B`; `target-version = "py310"`), and GitHub Actions CI on pull requests and pushes to `main`: a Python job (ruff + pytest on 3.10 and 3.12) and a frontend job (`npm ci`, `npm run lint`, `npm run build` on Node 22), with pip and npm caching.
 
 ## Project Structure
 - `main.py`: Entry point for the Typer app (`run`, `history`, `serve`). Presentation layer only. `run` takes its counts and variance percentile from `settings.py`; `--stable`, `--volatile` and `--variance-percentile` override them for that run without saving.

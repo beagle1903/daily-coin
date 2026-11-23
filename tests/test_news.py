@@ -2,7 +2,6 @@ import asyncio
 import time
 from unittest.mock import MagicMock, patch
 
-
 from news import (
     analyze_news_impact,
     build_ticker_map,

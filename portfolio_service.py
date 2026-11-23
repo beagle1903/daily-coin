@@ -4,13 +4,13 @@ Shared portfolio generation service used by both CLI (main.py) and API (server.p
 import asyncio
 import weakref
 
-from constants import DEFAULT_VARIANCE_PERCENTILE, MIN_EVALUATION_AGE_SECONDS, NEWS_LIMIT
 from binance_client import (
     fetch_all_market_data,
     get_current_prices,
     get_tradeable_symbols,
     mock_serve_count,
 )
+from constants import DEFAULT_VARIANCE_PERCENTILE, MIN_EVALUATION_AGE_SECONDS, NEWS_LIMIT
 from history import get_unevaluated_records, load_history, record_run
 from logic import (
     compute_bucket_stats,
