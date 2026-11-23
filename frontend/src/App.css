@@ -418,3 +418,27 @@
   border-radius: 12px;
   font-weight: 500;
 }
+
+.error-notice {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.dashboard-column {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.panel-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.history-status {
+  font-weight: 600;
+}
