@@ -9,6 +9,7 @@ from history import (
     save_history,
 )
 
+
 def test_clean_old_history_in_memory():
     old_time = time.time() - _default_repo.ttl_seconds - 100
     recent_time = time.time() - 100

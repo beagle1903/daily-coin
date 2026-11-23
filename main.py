@@ -8,8 +8,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from datetime import datetime
 import logging
+from datetime import datetime
 from typing import Optional
 
 import typer
@@ -18,8 +18,8 @@ from rich.markup import escape
 from rich.table import Table
 
 from constants import MIN_EVALUATION_AGE_SECONDS, PORTFOLIO_COUNT_MAX
-from history import load_history
 from formatting import format_price
+from history import load_history
 from portfolio_service import generate_portfolio
 from settings import load_settings
 

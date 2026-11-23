@@ -1,6 +1,13 @@
 import random
 
-from constants import SCORE_FLOOR, SCORE_CEILING, MAX_PER_RECORD_ADJUSTMENT, INITIAL_SCORE, DEFAULT_STABLE_COUNT, DEFAULT_VOLATILE_COUNT
+from constants import (
+    DEFAULT_STABLE_COUNT,
+    DEFAULT_VOLATILE_COUNT,
+    INITIAL_SCORE,
+    MAX_PER_RECORD_ADJUSTMENT,
+    SCORE_CEILING,
+    SCORE_FLOOR,
+)
 
 
 def load_coin_scores(universe, history, sentiment_impacts=None, technical_indicators=None):

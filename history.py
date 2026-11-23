@@ -2,7 +2,9 @@ import json
 import os
 import time
 from typing import Any, Callable, Dict, List
+
 from filelock import FileLock
+
 
 class JsonHistoryRepository:
     def __init__(self, file_path: str = "history.json", ttl_seconds: int = 30 * 24 * 60 * 60):

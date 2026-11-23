@@ -1,20 +1,26 @@
 import asyncio
 import json
-import os
 import logging
+import os
 import random
 import time as _time
 
 import numpy as np
-
 from binance import AsyncClient
 from binance.client import Client
 
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 from constants import (
-    SEMAPHORE_LIMIT, SYMBOLS_CACHE_TTL, MARKET_DATA_CACHE_TTL,
-    MOCK_CIRCUIT_BREAKER_SECONDS, RSI_PERIOD, MACD_FAST, MACD_SLOW, MACD_SIGNAL,
-    STABLECOIN_EXCLUDED_BASES, KLINE_FAILURE_BREAKER_RATIO,
+    KLINE_FAILURE_BREAKER_RATIO,
+    MACD_FAST,
+    MACD_SIGNAL,
+    MACD_SLOW,
+    MARKET_DATA_CACHE_TTL,
+    MOCK_CIRCUIT_BREAKER_SECONDS,
+    RSI_PERIOD,
+    SEMAPHORE_LIMIT,
+    STABLECOIN_EXCLUDED_BASES,
+    SYMBOLS_CACHE_TTL,
 )
 
 _client = None

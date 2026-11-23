@@ -1,5 +1,7 @@
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+
 from typer.testing import CliRunner
+
 from main import app
 
 runner = CliRunner()
