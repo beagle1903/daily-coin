@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-
-const API_BASE = 'http://127.0.0.1:8000/api'
+import { generatePortfolio as requestPortfolio, getHistory, getSettings, saveSettings } from './api'
 
 // Upper bound for the stable and volatile counts. Keep in step with
 // PORTFOLIO_COUNT_MAX in constants.py, which the API enforces.
@@ -12,25 +11,6 @@ function clampCount(value) {
   const parsed = parseInt(value, 10)
   if (Number.isNaN(parsed)) return 1
   return Math.min(COUNT_MAX, Math.max(1, parsed))
-}
-
-function apiHeaders(extra = {}) {
-  return {
-    'X-API-Key': import.meta.env.VITE_DAILY_COIN_API_KEY || '',
-    ...extra,
-  }
-}
-
-function errorMessageForStatus(status, fallback) {
-  if (status === 401) return 'Unauthorized: missing or invalid API key.'
-  if (status === 429) return 'Too many portfolio requests. Try again in a minute.'
-  return fallback
-}
-
-async function getJson(path, fallbackMessage) {
-  const res = await fetch(`${API_BASE}${path}`, { headers: apiHeaders() })
-  if (!res.ok) throw new Error(errorMessageForStatus(res.status, fallbackMessage))
-  return res.json()
 }
 
 // Two decimals for magnitudes of 1 or more; below that, 4 significant digits so
@@ -74,22 +54,10 @@ function App() {
     try {
       // 1. Save the counts. This is a partial update: settings the dashboard does
       // not show (variance_percentile) keep their stored value.
-      const settingsRes = await fetch(`${API_BASE}/settings`, {
-        method: 'POST',
-        headers: apiHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ stable_count: stableCount, volatile_count: volatileCount })
-      })
-      if (!settingsRes.ok) {
-        throw new Error(errorMessageForStatus(settingsRes.status, 'Failed to save settings'))
-      }
+      await saveSettings({ stable_count: stableCount, volatile_count: volatileCount })
 
       // 2. Fetch the recommendations
-      const res = await fetch(`${API_BASE}/portfolio/generate?stable=${stableCount}&volatile=${volatileCount}`, {
-        method: 'POST',
-        headers: apiHeaders(),
-      })
-      if (!res.ok) throw new Error(errorMessageForStatus(res.status, 'Failed to generate portfolio. Make sure backend is running.'))
-      const data = await res.json()
+      const data = await requestPortfolio(stableCount, volatileCount)
       if (data.error) {
         setError(data.error)
         setLoading(false)
@@ -100,7 +68,7 @@ function App() {
       setPortfolioInfo({ saved: false, time: Date.now() })
       setNews(data.news || [])
       try {
-        setHistory(newestFirst(await getJson('/history', 'Failed to fetch history')))
+        setHistory(newestFirst(await getHistory()))
       } catch (err) {
         console.error(err)
       }
@@ -117,11 +85,11 @@ function App() {
     let cancelled = false
     const init = async () => {
       const [settings, records] = await Promise.all([
-        getJson('/settings', 'Failed to fetch settings').catch((err) => {
+        getSettings().catch((err) => {
           console.error(err)
           return null
         }),
-        getJson('/history', 'Failed to fetch history').catch((err) => {
+        getHistory().catch((err) => {
           console.error(err)
           return []
         }),
@@ -192,14 +160,7 @@ function App() {
       </header>
 
       {error && (
-        <div style={{
-          background: 'rgba(239, 68, 68, 0.15)',
-          border: '1px solid rgba(239, 68, 68, 0.3)',
-          color: '#f87171',
-          padding: '16px',
-          borderRadius: '12px',
-          fontWeight: '500'
-        }}>
+        <div className="error-notice" role="alert">
           Error: {error}
         </div>
       )}
@@ -215,13 +176,13 @@ function App() {
       {/* Main Grid */}
       <div className="dashboard-grid">
         {/* Left Side: Current Recommendations */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+        <div className="dashboard-column">
           <section className="glass-panel">
             <div className="panel-content">
               <h2 className="panel-title">
                 Recommended Allocation
                 {portfolio.length > 0 && (
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  <span className="panel-subtitle">
                     {portfolio.filter(p => p.type === 'Stable').length} Stable / {portfolio.filter(p => p.type === 'Volatile').length} Volatile
                     {portfolioInfo && (
                       <>
@@ -298,7 +259,7 @@ function App() {
                       <div key={index} className="history-card">
                         <div className="history-header">
                           <span>Portfolio Generated at {date}</span>
-                          <span style={{ fontWeight: '600' }}>
+                          <span className="history-status">
                             {record.evaluated ? 'Evaluated' : 'Pending Evaluation'}
                           </span>
                         </div>
