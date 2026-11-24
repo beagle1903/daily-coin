@@ -7,7 +7,7 @@
 - The 2026-08 code review (`reviews/`, removed in #44) is fully addressed; remaining work is in GitHub issues, not local task files.
 - History TTL in code is 30 days (`history.py`). Default portfolio size is 3 stable + 6 volatile.
 - GitHub Actions CI (`.github/workflows/ci.yml`) runs ruff and pytest on Python 3.12 (backend job), plus frontend lint and build on Node 22, on PRs and pushes to `main`.
-- Local Docker workspace and Cloud Agent environment setup are on `main`.
+- Local Docker workspace and the VS Code dev container are on `main`; the Cursor Cloud Agent config (`.cursor/`) was removed in #40.
 - Portfolio query/settings counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`) from #12.
 - Pick explanations (#19) are on `main`: nested `explanation` on each generate pick, CLI Why these picks, dashboard MACD + paragraph.
 - Mock fallback is display-only (#28): not cached, not written to history, flagged as `mock` in the service/API result with a notice in the CLI and dashboard.
@@ -32,4 +32,4 @@ See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45
 
 #41 on branch `issue-41-tunables-to-constants`: history TTL, universe size, kline interval/limit, variance window, Binance timeout, RSI thresholds/neutral, RSI and MACD adjustments moved to `constants.py`; explanation text formats from them; dashboard default counts named. No behaviour change.
 
-#40 on branch `issue-40-split-pin-requirements`: `requirements.txt` is runtime only and fully pinned (`rich`, `python-dotenv`, `vaderSentiment` pinned to the venv versions); `requirements-dev.txt` adds pytest, ruff and `httpx2` (TestClient). CI, Dockerfile (a dev workspace, so it installs the dev set), devcontainer and `.cursor/install.sh` install the dev file; README and `docs/architecture.md` updated. New `.github/dependabot.yml` for pip, npm and Actions (weekly, grouped).
+#40 on branch `issue-40-split-pin-requirements`: `requirements.txt` is runtime only and fully pinned (`rich`, `python-dotenv`, `vaderSentiment` pinned to the venv versions); `requirements-dev.txt` adds pytest, ruff and `httpx2` (TestClient). CI, Dockerfile (a dev workspace, so it installs the dev set) and devcontainer install the dev file; `.cursor/` (Cursor Cloud Agent config) removed; README and `docs/architecture.md` updated. New `.github/dependabot.yml` for pip, npm and Actions (weekly, grouped).

@@ -1,6 +1,6 @@
 # Local workspace on Windows 11 + Docker Desktop
 
-This matches the cloud agent layout: one Linux container with Python 3.12, Node 22, the repo at `/workspace`, the API on port **8000**, and Vite on port **5173**. Docker Desktop publishes those ports to `localhost` on Windows (the same idea as Cursor’s cloud port tunnel).
+This matches the cloud agent layout: one Linux container with Python 3.12, Node 22, the repo at `/workspace`, the API on port **8000**, and Vite on port **5173**. Docker Desktop publishes those ports to `localhost` on Windows.
 
 ## Prerequisites
 
@@ -39,9 +39,9 @@ Or attach to a running stack:
 docker compose exec workspace python main.py run
 ```
 
-## Cursor / VS Code Dev Container
+## VS Code Dev Container
 
-1. Open the repo folder in Cursor.
+1. Open the repo folder in VS Code (Dev Containers extension).
 2. Command Palette → **Dev Containers: Reopen in Container**.
 3. In the container terminal: `python main.py serve --host 0.0.0.0 --port 8000` and, in `frontend`, `npm run dev -- --host 0.0.0.0 --port 5173`.
 
@@ -49,6 +49,5 @@ Dev Containers override the Compose `command`, so servers do not start automatic
 
 ## What is not copied from the cloud VM
 
-- Cursor Cloud MCP and the agent desktop
 - Automatic Binance access (geo blocks still apply; the app falls back to mock market data)
 - Your local `.env` (keep secrets on the host; set `DAILY_COIN_API_KEY` and `VITE_DAILY_COIN_API_KEY` for the dashboard)
