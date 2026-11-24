@@ -7,7 +7,7 @@
 - The 2026-08 code review (`reviews/`, removed in #44) is fully addressed; remaining work is in GitHub issues, not local task files.
 - History TTL in code is 30 days (`history.py`). Default portfolio size is 3 stable + 6 volatile.
 - GitHub Actions CI (`.github/workflows/ci.yml`) runs ruff and pytest on Python 3.12 (backend job), plus frontend lint and build on Node 22, on PRs and pushes to `main`.
-- Local Docker workspace and Cloud Agent environment setup are on `main`.
+- Local Docker workspace and the VS Code dev container are on `main`; the Cursor Cloud Agent config (`.cursor/`) was removed in #40.
 - Portfolio query/settings counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`) from #12.
 - Pick explanations (#19) are on `main`: nested `explanation` on each generate pick, CLI Why these picks, dashboard MACD + paragraph.
 - Mock fallback is display-only (#28): not cached, not written to history, flagged as `mock` in the service/API result with a notice in the CLI and dashboard.
@@ -17,7 +17,7 @@
 - Settings (#32): `settings.py` is shared by the CLI and the API; `POST /api/settings` is a partial update; `variance_percentile` is bounded; `settings.json` is untracked.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions (#42–#44) are done; of the enhancements, #34 is done, #39 is done, #38 is done, #35 is done, #37 is done, #36 is done, #41 is in progress and #40 remains. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions (#42–#44) are done; of the enhancements, #34 is done, #39 is done, #38 is done, #35 is done, #37 is done, #36 is done, #41 is done, #40 is in progress (last audit item). Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
 #28–#34 and #42–#44 merged via PRs #46–#55. #39 (CI for the frontend, consistent Python version) on branch `issue-39-ci-frontend-python`: new frontend CI job, Python job as a 3.10/3.12 matrix, pip and npm caching, ruff `I` and `B` rules enabled (imports re-sorted, no `B` findings). Docs state 3.10+ as the supported minimum.
@@ -31,3 +31,5 @@ See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45
 #36 on branch `issue-36-sentiment-all-headlines`: sentiment scored over `NEWS_ANALYZE_LIMIT` (50) headlines, `NEWS_DISPLAY_LIMIT` (5) shown; UTC timestamps via `calendar.timegm`; feed failures logged. Live check: averaging over more headlines dilutes single strong ones (neutral 0.0 headlines count), so impacts can drop; whether to skip neutral headlines is an open question.
 
 #41 on branch `issue-41-tunables-to-constants`: history TTL, universe size, kline interval/limit, variance window, Binance timeout, RSI thresholds/neutral, RSI and MACD adjustments moved to `constants.py`; explanation text formats from them; dashboard default counts named. No behaviour change.
+
+#40 on branch `issue-40-split-pin-requirements`: `requirements.txt` is runtime only and fully pinned (`rich`, `python-dotenv`, `vaderSentiment` pinned to the venv versions); `requirements-dev.txt` adds pytest, ruff and `httpx2` (TestClient). CI, Dockerfile (a dev workspace, so it installs the dev set) and devcontainer install the dev file; `.cursor/` (Cursor Cloud Agent config) removed; the Antigravity skills in `.agents/skills/` moved to `.claude/skills/` (`/run-fe`, `/mp`; `/run` dropped, `/run-cli` covers it); README and `docs/architecture.md` updated. New `.github/dependabot.yml` for pip, npm and Actions (weekly, grouped).

@@ -1,0 +1,6 @@
+# Development dependencies: the runtime set plus test and lint tools.
+-r requirements.txt
+pytest==9.1.1
+ruff==0.12.12
+# HTTP client used by fastapi.testclient.TestClient in tests/test_server.py.
+httpx2==2.10.0

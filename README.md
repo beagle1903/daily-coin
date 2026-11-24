@@ -36,7 +36,7 @@ Create a virtual environment and install the dependencies:
 ```bash
 python -m venv venv
 venv\Scripts\activate        # Windows; on macOS/Linux: source venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # dev set: runtime + pytest, ruff; runtime only: requirements.txt
 ```
 
 Ensure you have a `.env` file in the root directory with your Binance API keys and the dashboard API key (same value in both `DAILY_COIN_API_KEY` and `VITE_DAILY_COIN_API_KEY`):

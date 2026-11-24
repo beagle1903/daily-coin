@@ -23,7 +23,7 @@
 ## 005 - Local Docker workspace
 **Context:** Cloud agents run the stack in a Linux VM with ports 8000/5173. Developers on Windows 11 need the same layout without duplicating cloud-only tooling.
 **Decision:** Ship a single Compose service (`workspace`) built from a Python 3.12 + Node 22 image, bind-mount the repo, and publish both ports to the host. Optional Dev Containers reuse that service with `overrideCommand`.
-**Consequences:** `docker compose up` on Docker Desktop matches the cloud `/run-fe` ports. File watching needs polling on Windows bind mounts. This is not a clone of Cursor Cloud MCP or the agent desktop.
+**Consequences:** `docker compose up` on Docker Desktop matches the cloud `/run-fe` ports. File watching needs polling on Windows bind mounts.
 
 ## 006 - GitHub Issues and PRs over local task files
 **Context:** The Antigravity `tasks.json` queue went stale (including leftover work from an unrelated CLI) and did not give humans a shared backlog or review gate.
