@@ -30,10 +30,105 @@ function newestFirst(records) {
   return [...records].sort((a, b) => b.timestamp - a.timestamp)
 }
 
+// Score points with an explicit sign, for the breakdown and sentiment rows.
+function formatSigned(value) {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}`
+}
+
+// Fractional change (0.012) as a signed percentage (+1.20%).
+function formatPercent(change) {
+  return `${change >= 0 ? '+' : ''}${(change * 100).toFixed(2)}%`
+}
+
+function averageChange(performance) {
+  const values = Object.values(performance)
+  if (values.length === 0) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+// Components that add up to a pick's score, in the order the pipeline applies them.
+const BREAKDOWN_ROWS = [
+  ['Base', 'base'],
+  ['History', 'history_adjustment'],
+  ['News', 'news_adjustment'],
+  ['RSI', 'rsi_adjustment'],
+  ['MACD', 'macd_adjustment'],
+]
+
+function ScoreBreakdown({ explanation }) {
+  return (
+    <dl className="score-breakdown">
+      {BREAKDOWN_ROWS.map(([label, key]) => {
+        const value = explanation[key]
+        if (!Number.isFinite(value)) return null
+        // Colour by the shown (rounded) value, so "+0.00" stays neutral
+        const shown = Math.round(value * 100)
+        const tone = key === 'base' || shown === 0 ? '' : shown > 0 ? 'up' : 'down'
+        return (
+          <div key={key} className="breakdown-row">
+            <dt>{label}</dt>
+            <dd className={tone}>
+              {key === 'base' ? value.toFixed(2) : formatSigned(value)}
+            </dd>
+          </div>
+        )
+      })}
+    </dl>
+  )
+}
+
+// Shown after a run that evaluated past portfolios: one row per portfolio with
+// its average change and the per-coin changes.
+function EvaluationSummary({ results, held }) {
+  return (
+    <section className="glass-panel" aria-label="Just evaluated">
+      <div className="panel-content">
+        <h2 className="panel-title">
+          Just Evaluated
+          <span className="panel-subtitle">
+            {results.length} past portfolio{results.length === 1 ? '' : 's'}
+            {held > 0 && ` · ${held} too recent, left for a later run`}
+          </span>
+        </h2>
+        <div className="history-list">
+          {results.map((result) => {
+            const average = averageChange(result.performance)
+            return (
+              <div key={result.timestamp} className="history-card">
+                <div className="history-header">
+                  <span>Portfolio from {new Date(result.timestamp * 1000).toLocaleString()}</span>
+                  <span className={`gain-indicator ${average >= 0 ? 'up' : 'down'}`}>
+                    Avg {formatPercent(average)}
+                  </span>
+                </div>
+                <div className="history-picks">
+                  {Object.entries(result.performance).map(([coin, change]) => (
+                    <div key={coin} className="pick-pill">
+                      <span>{coin.replace('USDT', '')}</span>
+                      <span className={`gain-indicator ${change >= 0 ? 'up' : 'down'}`}>
+                        {formatPercent(change)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function App() {
   const [loading, setLoading] = useState(false)
   const [portfolio, setPortfolio] = useState([])
   const [news, setNews] = useState([])
+  const [impacts, setImpacts] = useState([])
+  // Past portfolios the last run evaluated, and how many it left pending
+  const [evaluation, setEvaluation] = useState({ results: [], held: 0 })
+  // Non-fatal load failures (settings, history): shown, but the page still works
+  const [warnings, setWarnings] = useState([])
   const [history, setHistory] = useState([])
   const [stableCount, setStableCount] = useState(3)
   const [volatileCount, setVolatileCount] = useState(6)
@@ -51,6 +146,7 @@ function App() {
   const generatePortfolio = async () => {
     setLoading(true)
     setError(null)
+    setWarnings([])
     try {
       // 1. Save the counts. This is a partial update: settings the dashboard does
       // not show (variance_percentile) keep their stored value.
@@ -62,10 +158,12 @@ function App() {
       setIsMock(Boolean(data.mock))
       setPortfolioInfo({ saved: false, time: Date.now() })
       setNews(data.news || [])
+      setImpacts(data.sentiment_impacts || [])
+      setEvaluation({ results: data.evaluation_results || [], held: data.held_evaluations || 0 })
       try {
         setHistory(newestFirst(await getHistory()))
       } catch (err) {
-        console.error(err)
+        setWarnings([`Could not refresh history: ${err.message}`])
       }
     } catch (err) {
       setError(err.message)
@@ -79,18 +177,20 @@ function App() {
   useEffect(() => {
     let cancelled = false
     const init = async () => {
+      const failures = []
       const [settings, records] = await Promise.all([
         getSettings().catch((err) => {
-          console.error(err)
+          failures.push(`Could not load saved settings, using defaults: ${err.message}`)
           return null
         }),
         getHistory().catch((err) => {
-          console.error(err)
+          failures.push(`Could not load history: ${err.message}`)
           return []
         }),
       ])
       if (cancelled) return
       setInitializing(false)
+      setWarnings(failures)
       if (settings) {
         setStableCount(settings.stable_count)
         setVolatileCount(settings.volatile_count)
@@ -159,6 +259,12 @@ function App() {
           Error: {error}
         </div>
       )}
+
+      {warnings.map((warning) => (
+        <div key={warning} className="warning-notice" role="status">
+          {warning}
+        </div>
+      ))}
 
       {/* Tied to the cards on screen, so it stays up if a later request fails */}
       {isMock && portfolio.length > 0 && (
@@ -230,6 +336,7 @@ function App() {
                           </div>
                         )}
                       </div>
+                      {coin.explanation && <ScoreBreakdown explanation={coin.explanation} />}
                       {coin.explanation?.summary && (
                         <p className="coin-explanation">{coin.explanation.summary}</p>
                       )}
@@ -239,6 +346,10 @@ function App() {
               )}
             </div>
           </section>
+
+          {!loading && evaluation.results.length > 0 && (
+            <EvaluationSummary results={evaluation.results} held={evaluation.held} />
+          )}
 
           {/* Past Performance / Logs */}
           <section className="glass-panel">
@@ -286,6 +397,25 @@ function App() {
         <section className="glass-panel">
           <div className="panel-content">
             <h2 className="panel-title">Crypto News & VADER Sentiment</h2>
+            {impacts.length > 0 && (
+              <div className="impact-list" aria-label="Sentiment impacts">
+                <h3 className="impact-heading">Score impact this run</h3>
+                {impacts.map((impact) => (
+                  <div key={impact.coin} className="impact-item">
+                    <div className="impact-row">
+                      <span className="coin-symbol">{impact.coin.replace('USDT', '')}</span>
+                      <span className={`news-badge ${impact.sentiment === 'Bullish' ? 'positive' : 'negative'}`}>
+                        {impact.sentiment}
+                      </span>
+                      <span className={`impact-adjustment ${impact.adjustment >= 0 ? 'up' : 'down'}`}>
+                        {formatSigned(impact.adjustment)} score
+                      </span>
+                    </div>
+                    <p className="impact-headline">{impact.headline}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="news-list">
               {news.length === 0 ? (
                 <div className="empty-state">No news parsed yet. Click "Run Portfolio Generator" to pull the RSS feed.</div>
