@@ -6,7 +6,7 @@
 - CLI (`main.py`), shared portfolio service, FastAPI backend (`server.py`), and Vite + React dashboard (`frontend/`) are implemented.
 - The 2026-08 code review (`reviews/`, removed in #44) is fully addressed; remaining work is in GitHub issues, not local task files.
 - History TTL in code is 30 days (`history.py`). Default portfolio size is 3 stable + 6 volatile.
-- GitHub Actions CI (`.github/workflows/ci.yml`) runs ruff and pytest on Python 3.10 and 3.12, plus frontend lint and build on Node 22, on PRs and pushes to `main`.
+- GitHub Actions CI (`.github/workflows/ci.yml`) runs ruff and pytest on Python 3.12 (backend job), plus frontend lint and build on Node 22, on PRs and pushes to `main`.
 - Local Docker workspace and Cloud Agent environment setup are on `main`.
 - Portfolio query/settings counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`) from #12.
 - Pick explanations (#19) are on `main`: nested `explanation` on each generate pick, CLI Why these picks, dashboard MACD + paragraph.
@@ -24,4 +24,4 @@ See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45
 
 #38 on branch `issue-38-frontend-api-url`: frontend calls relative `/api` (Vite proxy, target `DAILY_COIN_API_TARGET`; `VITE_API_BASE` override), fetches live in `frontend/src/api.js`, inline styles moved to `App.css`. `oxlint` is clean. CORS in `server.py` is kept (tested, needed for `VITE_API_BASE`).
 
-#35 on branch `issue-35-api-errors-response-models`: generate returns 502 with `detail` on Binance failures, Pydantic response models in `schemas.py`, `serve --reload/--no-reload` (default off; Docker passes `--reload`), `allow_credentials` removed. Dashboard shows the 502 `detail`.
+#35 on branch `issue-35-api-errors-response-models`: generate returns 502 with `detail` on Binance failures, Pydantic response models in `schemas.py`, `serve --reload/--no-reload` (default off; Docker passes `--reload`), `allow_credentials` removed. Dashboard shows the 502 `detail`. Same PR raises the Python minimum to 3.12: single `Backend` CI job (was a 3.10/3.12 matrix), ruff `target-version = "py312"`.
