@@ -1,14 +1,14 @@
 # Runtime dependencies for the CLI and the API server. Every package is pinned.
 # Test and lint tools live in requirements-dev.txt.
-typer==0.27.1
+typer==0.29.2
 rich==15.0.0
-pydantic==2.13.4
+pydantic==2.14.4
 python-binance==1.0.37
 python-dotenv==1.2.4
 feedparser==6.0.14
 vaderSentiment==3.3.2
-fastapi==0.141.1
-uvicorn==0.52.1
-filelock==3.17.0
-numpy==2.2.3
+fastapi==0.165.0
+uvicorn==0.54.0
+filelock==4.2.12
+numpy==2.5.5
 slowapi==0.1.10
