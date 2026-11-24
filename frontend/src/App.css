@@ -442,3 +442,107 @@
 .history-status {
   font-weight: 600;
 }
+
+.warning-notice {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: var(--accent-gold);
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+/* Score breakdown on pick cards */
+.score-breakdown {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.breakdown-row dt {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.breakdown-row dd {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.breakdown-row dd.up,
+.impact-adjustment.up {
+  color: var(--gain-color);
+}
+
+.breakdown-row dd.down,
+.impact-adjustment.down {
+  color: var(--loss-color);
+}
+
+/* Sentiment impacts above the headlines */
+.impact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.impact-heading {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.impact-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.impact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.impact-row .coin-symbol {
+  font-size: 1rem;
+}
+
+.impact-adjustment {
+  margin-left: auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.impact-headline {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 480px) {
+  .score-breakdown {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
