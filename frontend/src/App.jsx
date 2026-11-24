@@ -6,6 +6,11 @@ import { generatePortfolio as requestPortfolio, getHistory, getSettings, saveSet
 // PORTFOLIO_COUNT_MAX in constants.py, which the API enforces.
 const COUNT_MAX = 50
 
+// Counts shown until the stored settings load (and kept if that load fails).
+// Keep in step with DEFAULT_STABLE_COUNT / DEFAULT_VOLATILE_COUNT in constants.py.
+const DEFAULT_STABLE_COUNT = 3
+const DEFAULT_VOLATILE_COUNT = 6
+
 // Parse a count input and keep it inside the range the API accepts.
 function clampCount(value) {
   const parsed = parseInt(value, 10)
@@ -130,8 +135,8 @@ function App() {
   // Non-fatal load failures (settings, history): shown, but the page still works
   const [warnings, setWarnings] = useState([])
   const [history, setHistory] = useState([])
-  const [stableCount, setStableCount] = useState(3)
-  const [volatileCount, setVolatileCount] = useState(6)
+  const [stableCount, setStableCount] = useState(DEFAULT_STABLE_COUNT)
+  const [volatileCount, setVolatileCount] = useState(DEFAULT_VOLATILE_COUNT)
   const [error, setError] = useState(null)
   const [isMock, setIsMock] = useState(false)
   // Where the cards on screen came from: { saved: true } = latest history record

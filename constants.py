@@ -8,12 +8,30 @@ MOCK_CIRCUIT_BREAKER_SECONDS = 60
 # Share of symbols that must lack kline data before a market-data fetch counts as
 # an outage (circuit breaker + mock fallback). Below it, those symbols are skipped.
 KLINE_FAILURE_BREAKER_RATIO = 0.5
+# Timeout for one Binance request (the startup ping and each kline fetch)
+BINANCE_REQUEST_TIMEOUT_SECONDS = 5.0
+
+# Market data: the universe is the TRADEABLE_UNIVERSE_SIZE USDT pairs with the most
+# volume. Each symbol fetches KLINE_LIMIT candles of KLINE_INTERVAL (360 x 4h ~ 60
+# days, enough for MACD); variance uses the last VARIANCE_WINDOW_CANDLES (~30 days).
+TRADEABLE_UNIVERSE_SIZE = 100
+KLINE_INTERVAL = "4h"
+KLINE_LIMIT = 360
+VARIANCE_WINDOW_CANDLES = 180
 
 # Technical Indicators
 RSI_PERIOD = 14
 MACD_FAST = 12
 MACD_SLOW = 26
 MACD_SIGNAL = 9
+# RSI below RSI_OVERSOLD adds RSI_ADJUSTMENT to the score, above RSI_OVERBOUGHT
+# subtracts it. RSI_NEUTRAL is used when a coin has no RSI.
+RSI_OVERSOLD = 30.0
+RSI_OVERBOUGHT = 70.0
+RSI_NEUTRAL = 50.0
+RSI_ADJUSTMENT = 2.0
+# MACD above its signal line adds MACD_ADJUSTMENT, below it subtracts it.
+MACD_ADJUSTMENT = 1.0
 
 # Portfolio size bounds (API query params and settings)
 PORTFOLIO_COUNT_MAX = 50
@@ -47,6 +65,8 @@ PORTFOLIO_GENERATE_RATE_LIMIT = "10/minute"
 # A saved portfolio is only evaluated once it is at least this old. Younger records
 # stay pending, so quick re-runs do not feed ~0% changes into the history adjustment.
 MIN_EVALUATION_AGE_SECONDS = 3600  # 1 hour
+# Saved portfolios older than this are dropped from history.json.
+HISTORY_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 # Scoring Parameters
 SCORE_FLOOR = 1.0

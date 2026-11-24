@@ -5,9 +5,11 @@ from typing import Any, Callable, Dict, List
 
 from filelock import FileLock
 
+from constants import HISTORY_TTL_SECONDS
+
 
 class JsonHistoryRepository:
-    def __init__(self, file_path: str = "history.json", ttl_seconds: int = 30 * 24 * 60 * 60):
+    def __init__(self, file_path: str = "history.json", ttl_seconds: int = HISTORY_TTL_SECONDS):
         self.file_path = file_path
         self.lock_path = f"{file_path}.lock"
         self.ttl_seconds = ttl_seconds
