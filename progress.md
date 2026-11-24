@@ -17,7 +17,7 @@
 - Settings (#32): `settings.py` is shared by the CLI and the API; `POST /api/settings` is a partial update; `variance_percentile` is bounded; `settings.json` is untracked.
 
 ## Open work
-See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions (#42–#44) are done; of the enhancements, #34 is done, #39 is done, #38 is done, #35 is done, #37 is in progress and #36, #40, #41 remain. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
+See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45 (#28–#44); the six bugs (#28–#33) are done; the reductions (#42–#44) are done; of the enhancements, #34 is done, #39 is done, #38 is done, #35 is done, #37 is done, #36 is in progress and #40, #41 remain. Product backlog: #20 vs BTC, #21 constraints, #22 hold vs regenerate, #23 daily digest (suggested order). Icebox: #13 database storage — do not implement until a multi-user requirement exists in `docs/context.md`.
 
 ## Last session
 #28–#34 and #42–#44 merged via PRs #46–#55. #39 (CI for the frontend, consistent Python version) on branch `issue-39-ci-frontend-python`: new frontend CI job, Python job as a 3.10/3.12 matrix, pip and npm caching, ruff `I` and `B` rules enabled (imports re-sorted, no `B` findings). Docs state 3.10+ as the supported minimum.
@@ -27,3 +27,5 @@ See GitHub Issues. Do not use `tasks.json`. Audit findings are sub-issues of #45
 #35 on branch `issue-35-api-errors-response-models`: generate returns 502 with `detail` on Binance failures, Pydantic response models in `schemas.py`, `serve --reload/--no-reload` (default off; Docker passes `--reload`), `allow_credentials` removed. Dashboard shows the 502 `detail`. Same PR raises the Python minimum to 3.12: single `Backend` CI job (was a 3.10/3.12 matrix), ruff `target-version = "py312"`.
 
 #37 on branch `issue-37-dashboard-sentiment-evaluations`: dashboard shows sentiment impacts, a Just Evaluated panel (average per portfolio), the score breakdown on pick cards, and settings/history load failures as warnings. Frontend only.
+
+#36 on branch `issue-36-sentiment-all-headlines`: sentiment scored over `NEWS_ANALYZE_LIMIT` (50) headlines, `NEWS_DISPLAY_LIMIT` (5) shown; UTC timestamps via `calendar.timegm`; feed failures logged. Live check: averaging over more headlines dilutes single strong ones (neutral 0.0 headlines count), so impacts can drop; whether to skip neutral headlines is an open question.
