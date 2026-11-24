@@ -15,6 +15,7 @@ from constants import (
     MIN_EVALUATION_AGE_SECONDS,
     NEWS_ANALYZE_LIMIT,
     NEWS_DISPLAY_LIMIT,
+    TRADEABLE_UNIVERSE_SIZE,
 )
 from history import get_unevaluated_records, load_history, record_run
 from logic import (
@@ -114,7 +115,7 @@ async def _generate_portfolio(stable_count: int, volatile_count: int, variance_p
             await asyncio.to_thread(record_run, performance_by_timestamp, portfolio, prices, picks)
 
     # 2. Get tradeable symbols
-    valid_symbols = await asyncio.to_thread(get_tradeable_symbols, limit=100)
+    valid_symbols = await asyncio.to_thread(get_tradeable_symbols, limit=TRADEABLE_UNIVERSE_SIZE)
     if not valid_symbols:
         return {"error": "Could not fetch valid symbols from Binance."}
 

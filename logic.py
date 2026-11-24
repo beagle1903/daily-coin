@@ -4,7 +4,12 @@ from constants import (
     DEFAULT_STABLE_COUNT,
     DEFAULT_VOLATILE_COUNT,
     INITIAL_SCORE,
+    MACD_ADJUSTMENT,
     MAX_PER_RECORD_ADJUSTMENT,
+    RSI_ADJUSTMENT,
+    RSI_NEUTRAL,
+    RSI_OVERBOUGHT,
+    RSI_OVERSOLD,
     SCORE_CEILING,
     SCORE_FLOOR,
 )
@@ -25,7 +30,7 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
             "news_adjustment": 0.0,
             "news_headline": None,
             "news_sentiment": None,
-            "rsi": 50.0,
+            "rsi": RSI_NEUTRAL,
             "rsi_adjustment": 0.0,
             "macd": 0.0,
             "signal": 0.0,
@@ -63,7 +68,7 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
 
     if technical_indicators:
         for coin in scores:
-            ti = technical_indicators.get(coin, {"rsi": 50.0, "macd": 0.0, "signal": 0.0})
+            ti = technical_indicators.get(coin, {"rsi": RSI_NEUTRAL, "macd": 0.0, "signal": 0.0})
             rsi = ti["rsi"]
             macd = ti["macd"]
             signal = ti["signal"]
@@ -71,17 +76,17 @@ def load_coin_scores(universe, history, sentiment_impacts=None, technical_indica
             breakdowns[coin]["macd"] = macd
             breakdowns[coin]["signal"] = signal
 
-            if rsi < 30:
-                rsi_adj = 2.0
-            elif rsi > 70:
-                rsi_adj = -2.0
+            if rsi < RSI_OVERSOLD:
+                rsi_adj = RSI_ADJUSTMENT
+            elif rsi > RSI_OVERBOUGHT:
+                rsi_adj = -RSI_ADJUSTMENT
             else:
                 rsi_adj = 0.0
 
             if macd > signal:
-                macd_adj = 1.0
+                macd_adj = MACD_ADJUSTMENT
             elif macd < signal:
-                macd_adj = -1.0
+                macd_adj = -MACD_ADJUSTMENT
             else:
                 macd_adj = 0.0
 
@@ -162,11 +167,11 @@ def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_perce
             headline = headline[:80] + "..."
         parts.append(f"{sentiment} news ({headline}) added {news_adjustment:+.2f}.")
 
-    rsi = breakdown.get("rsi", 50.0)
-    if rsi < 30:
-        rsi_clause = "oversold; +2.0"
-    elif rsi > 70:
-        rsi_clause = "overbought; -2.0"
+    rsi = breakdown.get("rsi", RSI_NEUTRAL)
+    if rsi < RSI_OVERSOLD:
+        rsi_clause = f"oversold; {RSI_ADJUSTMENT:+.1f}"
+    elif rsi > RSI_OVERBOUGHT:
+        rsi_clause = f"overbought; {-RSI_ADJUSTMENT:+.1f}"
     else:
         rsi_clause = "neutral; no RSI adjustment"
     parts.append(f"RSI {rsi:.1f} is {rsi_clause}.")
@@ -174,9 +179,9 @@ def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_perce
     macd = breakdown.get("macd", 0.0)
     signal = breakdown.get("signal", 0.0)
     if macd > signal:
-        macd_clause = "above its signal (+1.0)"
+        macd_clause = f"above its signal ({MACD_ADJUSTMENT:+.1f})"
     elif macd < signal:
-        macd_clause = "below its signal (-1.0)"
+        macd_clause = f"below its signal ({-MACD_ADJUSTMENT:+.1f})"
     else:
         macd_clause = "even with its signal (no MACD adjustment)"
     parts.append(f"MACD is {macd_clause}.")
@@ -192,9 +197,9 @@ def format_pick_explanation(breakdown, bucket_stats, bucket_type, variance_perce
     )
     score = breakdown["score"]
     if unclamped > SCORE_CEILING and score == SCORE_CEILING:
-        parts.append("The total was clamped to the 30.0 score limit.")
+        parts.append(f"The total was clamped to the {SCORE_CEILING:.1f} score limit.")
     elif unclamped < SCORE_FLOOR and score == SCORE_FLOOR:
-        parts.append("The total was clamped to the 1.0 score limit.")
+        parts.append(f"The total was clamped to the {SCORE_FLOOR:.1f} score limit.")
 
     return " ".join(parts)
 

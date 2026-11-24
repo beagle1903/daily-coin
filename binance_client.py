@@ -11,16 +11,22 @@ from binance.client import Client
 
 from config import BINANCE_API_KEY, BINANCE_API_SECRET
 from constants import (
+    BINANCE_REQUEST_TIMEOUT_SECONDS,
     KLINE_FAILURE_BREAKER_RATIO,
+    KLINE_INTERVAL,
+    KLINE_LIMIT,
     MACD_FAST,
     MACD_SIGNAL,
     MACD_SLOW,
     MARKET_DATA_CACHE_TTL,
     MOCK_CIRCUIT_BREAKER_SECONDS,
+    RSI_NEUTRAL,
     RSI_PERIOD,
     SEMAPHORE_LIMIT,
     STABLECOIN_EXCLUDED_BASES,
     SYMBOLS_CACHE_TTL,
+    TRADEABLE_UNIVERSE_SIZE,
+    VARIANCE_WINDOW_CANDLES,
 )
 
 _client = None
@@ -72,7 +78,7 @@ def get_sync_client():
         return _client
     try:
         # Set a short timeout for the initial ping to avoid long hangs
-        _client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, requests_params={'timeout': 5})
+        _client = Client(BINANCE_API_KEY, BINANCE_API_SECRET, requests_params={'timeout': BINANCE_REQUEST_TIMEOUT_SECONDS})
         return _client
     except Exception as e:
         _activate_circuit_breaker(f"Binance API connection failed ({type(e).__name__}: {e})")
@@ -99,7 +105,7 @@ def _get_mock_tradeable_symbols(allowlist, limit):
         mock_symbols = [s for s in mock_symbols if s[:-4] in allowlist]
     return mock_symbols[:limit]
 
-def get_tradeable_symbols(limit=30):
+def get_tradeable_symbols(limit=TRADEABLE_UNIVERSE_SIZE):
     cache_key = f"tradeable_symbols_{limit}"
     cached = _cache_get(cache_key, SYMBOLS_CACHE_TTL)
     if cached is not None:
@@ -169,7 +175,7 @@ def get_current_prices(symbols):
 
 def calculate_rsi(closes, period=RSI_PERIOD):
     if len(closes) < period + 1:
-        return 50.0
+        return RSI_NEUTRAL
     arr = np.array(closes)
     diffs = np.diff(arr)
     gains = np.where(diffs > 0, diffs, 0.0)
@@ -237,10 +243,10 @@ async def fetch_all_market_data(symbols, max_retries=3):
                             klines = await asyncio.wait_for(
                                 client.get_klines(
                                     symbol=symbol,
-                                    interval=AsyncClient.KLINE_INTERVAL_4HOUR,
-                                    limit=360  # ~60 days of 4h klines
+                                    interval=KLINE_INTERVAL,
+                                    limit=KLINE_LIMIT,
                                 ),
-                                timeout=5.0
+                                timeout=BINANCE_REQUEST_TIMEOUT_SECONDS
                             )
                             return symbol, klines
                     except Exception as e:
@@ -266,7 +272,7 @@ async def fetch_all_market_data(symbols, max_retries=3):
                     # of 0.0 would rank it as the most stable coin in the universe.
                     continue
 
-                closes_30d = closes[-180:] if len(closes) >= 180 else closes
+                closes_30d = closes[-VARIANCE_WINDOW_CANDLES:]
                 variance = 0.0
                 arr = np.array(closes_30d)
                 valid_idx = arr[:-1] > 0

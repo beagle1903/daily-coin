@@ -322,3 +322,28 @@ def test_format_pick_explanation_mentions_floor_clamp():
     text = format_pick_explanation(breakdown, stats, "Volatile", 33.3, "ETH")
     assert "The total was clamped to the 1.0 score limit." in text
 
+
+
+def test_format_pick_explanation_formats_from_constants(monkeypatch):
+    """The RSI/MACD/clamp wording follows constants.py instead of repeating literals."""
+    import logic
+
+    monkeypatch.setattr(logic, "RSI_OVERSOLD", 25.0)
+    monkeypatch.setattr(logic, "RSI_ADJUSTMENT", 3.0)
+    monkeypatch.setattr(logic, "MACD_ADJUSTMENT", 1.5)
+    monkeypatch.setattr(logic, "SCORE_CEILING", 40.0)
+    breakdown = {
+        "base": 35.0,
+        "history_adjustment": 5.0,
+        "news_adjustment": 0.0,
+        "rsi": 24.0,
+        "rsi_adjustment": 3.0,
+        "macd": 1.0,
+        "signal": 0.5,
+        "macd_adjustment": 1.5,
+        "score": 40.0,
+    }
+    text = format_pick_explanation(breakdown, {}, "Volatile", 33.3, "SOL")
+    assert "RSI 24.0 is oversold; +3.0." in text
+    assert "MACD is above its signal (+1.5)." in text
+    assert "clamped to the 40.0 score limit." in text
