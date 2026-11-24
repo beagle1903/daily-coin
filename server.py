@@ -13,6 +13,7 @@ from config import get_daily_coin_api_key
 from constants import PORTFOLIO_COUNT_MAX, PORTFOLIO_GENERATE_RATE_LIMIT
 from history import load_history
 from portfolio_service import generate_portfolio as run_portfolio_generation
+from schemas import GenerateResponse, HistoryRecord
 from settings import SettingsModel, SettingsUpdate, load_settings
 from settings import update_settings as apply_settings_update
 
@@ -22,11 +23,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIASGIMiddleware)
 
-# Enable CORS for frontend development
+# Enable CORS for frontend development. Auth is the X-API-Key header, not cookies,
+# so credentials are not allowed.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["Authorization", "Content-Type", "Accept", "X-API-Key"],
 )
@@ -57,14 +58,19 @@ async def update_settings(update: SettingsUpdate):
     """
     return await asyncio.to_thread(apply_settings_update, update)
 
-@app.get("/api/history", dependencies=[Depends(require_api_key)])
+@app.get("/api/history", response_model=list[HistoryRecord], dependencies=[Depends(require_api_key)])
 async def get_portfolio_history():
     """
     Returns the complete list of past portfolios and their evaluation results.
     """
     return await asyncio.to_thread(load_history)
 
-@app.post("/api/portfolio/generate", dependencies=[Depends(require_api_key)])
+@app.post(
+    "/api/portfolio/generate",
+    response_model=GenerateResponse,
+    responses={502: {"description": "Binance data was unavailable; `detail` says what failed"}},
+    dependencies=[Depends(require_api_key)],
+)
 @limiter.limit(PORTFOLIO_GENERATE_RATE_LIMIT)
 async def generate_portfolio(
     request: Request,
@@ -95,7 +101,8 @@ async def generate_portfolio(
     )
 
     if "error" in result:
-        return result
+        # The pipeline could not get usable market data from Binance
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=result["error"])
 
     # Return only the API-relevant fields (strip internal data like 'scores', 'prices')
     return {

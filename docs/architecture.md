@@ -1,13 +1,13 @@
 # Architecture Blueprint
 
 ## System Overview
-- **Language:** Python 3.10+ (the minimum; CI tests 3.10 and 3.12, and the Docker image uses 3.12)
+- **Language:** Python 3.12+ (the minimum; CI and the Docker image both use 3.12)
 - **CLI Framework:** Typer (with Rich for terminal formatting)
 - **API:** FastAPI (`server.py`) served via `python main.py serve`
 - **Frontend:** Vite + React SPA in `frontend/`
 - **Data Integration:** `python-binance` for market prices.
 - **News Integration:** `feedparser` for RSS aggregation, `vaderSentiment` for NLP sentiment analysis.
-- **Quality:** pytest, ruff (`E`, `F`, `I`, `B`; `target-version = "py310"`), and GitHub Actions CI on pull requests and pushes to `main`: a Python job (ruff + pytest on 3.10 and 3.12) and a frontend job (`npm ci`, `npm run lint`, `npm run build` on Node 22), with pip and npm caching.
+- **Quality:** pytest, ruff (`E`, `F`, `I`, `B`; `target-version = "py312"`), and GitHub Actions CI on pull requests and pushes to `main`: a backend job (ruff + pytest on Python 3.12) and a frontend job (`npm ci`, `npm run lint`, `npm run build` on Node 22), with pip and npm caching.
 
 ## Project Structure
 - `main.py`: Entry point for the Typer app (`run`, `history`, `serve`). Presentation layer only. `run` takes its counts and variance percentile from `settings.py`; `--stable`, `--volatile` and `--variance-percentile` override them for that run without saving.
@@ -19,7 +19,8 @@
 - `news.py`: Fetches RSS feeds from top crypto outlets, parses headlines, and executes VADER sentiment analysis to provide heuristic modifiers. Coin names match in any case; tickers match only as `$TICKER`, or in upper case when at least `NEWS_TICKER_MIN_LENGTH` long and not in `NEWS_AMBIGUOUS_TICKERS` (see `find_mentioned_symbols`).
 - `constants.py`: Centralized tunable parameters (cache TTLs, indicator periods, score caps, VADER settings, portfolio count defaults/max, excluded stablequote bases, news headline limit).
 - `settings.py`: User-adjustable settings (`stable_count`, `volatile_count`, `variance_percentile`) shared by the CLI and the API. Stored in `settings.json`, which is not in version control: it is created on the first save, and missing or out-of-range values fall back to the defaults in `constants.py`. Counts are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`) and `variance_percentile` must be above 0 and below 100.
-- `server.py`: FastAPI REST endpoints for settings, history, and portfolio generation. `/api/*` routes require an `X-API-Key` header matching `DAILY_COIN_API_KEY`. `stable`/`volatile` query params are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`). `POST /api/settings` is a partial update: fields that are not sent keep their stored value. `POST /api/portfolio/generate` is rate-limited (`PORTFOLIO_GENERATE_RATE_LIMIT`); it is a POST because it evaluates pending records and appends to history. `GET /api/history` is read-only, and its newest record carries `picks` (the full per-coin detail) so the dashboard can show the latest saved portfolio without generating.
+- `server.py`: FastAPI REST endpoints for settings, history, and portfolio generation. `/api/*` routes require an `X-API-Key` header matching `DAILY_COIN_API_KEY`. `stable`/`volatile` query params are bounded (`gt=0`, `le=PORTFOLIO_COUNT_MAX`). `POST /api/settings` is a partial update: fields that are not sent keep their stored value. `POST /api/portfolio/generate` is rate-limited (`PORTFOLIO_GENERATE_RATE_LIMIT`); it is a POST because it evaluates pending records and appends to history. If Binance data is unavailable, generate returns `502` with a `detail` message (not `200 {"error": ...}`); the CLI still shows the service's `error`. CORS does not allow credentials (auth is a header). `python main.py serve` does not auto-reload; pass `--reload` in development (the Docker entrypoint does). `GET /api/history` is read-only, and its newest record carries `picks` (the full per-coin detail) so the dashboard can show the latest saved portfolio without generating.
+- `schemas.py`: Pydantic response models (`Pick`, `Explanation`, `HistoryRecord`, `GenerateResponse`, ...) used as `response_model` so the OpenAPI schema describes the payloads. Old history records without `picks`/`performance` stay valid.
 - `frontend/`: Vite + React dashboard for portfolio suggestions, history, and news sentiment. It sends `VITE_DAILY_COIN_API_KEY` as `X-API-Key`. That Vite value is in the client bundle, so dashboard users can recover it; this is shared local-API protection, not per-user auth.
 - `tests/`: Pytest suite for calculations, CLI, news, and API.
 

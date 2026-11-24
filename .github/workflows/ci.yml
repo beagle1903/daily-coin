@@ -6,19 +6,15 @@ on:
     branches: [main]
 
 jobs:
-  test:
-    name: Python ${{ matrix.python-version }}
+  backend:
+    name: Backend
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # 3.10 is the supported minimum (ruff target-version py310); 3.12 matches the Dockerfile.
-        python-version: ["3.10", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          # The supported minimum (ruff target-version py312); matches the Dockerfile.
+          python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.txt
       - name: Install dependencies
