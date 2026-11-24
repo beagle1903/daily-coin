@@ -1,5 +1,6 @@
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from typer.testing import CliRunner
 
 from main import app
@@ -238,3 +239,14 @@ def test_run_command_rejects_out_of_range_options():
             assert runner.invoke(app, args).exit_code != 0
 
     mock_gen.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [([], False), (["--reload"], True), (["--no-reload"], False)],
+)
+def test_serve_reload_is_opt_in(args, expected):
+    with patch("uvicorn.run") as mock_run:
+        result = runner.invoke(app, ["serve", *args])
+    assert result.exit_code == 0
+    assert mock_run.call_args.kwargs["reload"] is expected

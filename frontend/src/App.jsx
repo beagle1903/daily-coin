@@ -58,11 +58,6 @@ function App() {
 
       // 2. Fetch the recommendations
       const data = await requestPortfolio(stableCount, volatileCount)
-      if (data.error) {
-        setError(data.error)
-        setLoading(false)
-        return
-      }
       setPortfolio(data.portfolio || [])
       setIsMock(Boolean(data.mock))
       setPortfolioInfo({ saved: false, time: Date.now() })

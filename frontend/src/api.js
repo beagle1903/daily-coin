@@ -16,12 +16,28 @@ function errorMessageForStatus(status, fallback) {
   return fallback
 }
 
+// A 502 carries the upstream failure in `detail` (for example Binance being
+// unavailable); show it instead of the generic message.
+async function errorMessageForResponse(res, fallback) {
+  if (res.status === 502) {
+    try {
+      const body = await res.json()
+      if (typeof body.detail === 'string') return body.detail
+    } catch {
+      // not JSON: fall through to the generic message
+    }
+  }
+  return errorMessageForStatus(res.status, fallback)
+}
+
 async function request(path, options, fallbackMessage) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: apiHeaders(options.headers),
   })
-  if (!res.ok) throw new Error(errorMessageForStatus(res.status, fallbackMessage))
+  if (!res.ok) {
+    throw new Error(await errorMessageForResponse(res, fallbackMessage))
+  }
   return res.json()
 }
 

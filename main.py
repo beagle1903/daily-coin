@@ -198,14 +198,15 @@ def show_history():
 @app.command(name="serve")
 def serve_api(
     host: str = typer.Option("127.0.0.1", help="Host to bind the server to"),
-    port: int = typer.Option(8000, help="Port to bind the server to")
+    port: int = typer.Option(8000, help="Port to bind the server to"),
+    reload: bool = typer.Option(False, "--reload/--no-reload", help="Restart on code changes (development)"),
 ):
     """
     Starts the FastAPI backend server.
     """
     import uvicorn
     console.print(f"[bold green]Starting Daily Coin API Server on http://{host}:{port}...[/bold green]")
-    uvicorn.run("server:app", host=host, port=port, reload=True)
+    uvicorn.run("server:app", host=host, port=port, reload=reload)
 
 if __name__ == "__main__":
     app()

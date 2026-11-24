@@ -73,7 +73,7 @@ Without options, `run` uses the settings saved in `settings.json` (the same ones
 ## Running the web app
 ```bash
 # API (http://127.0.0.1:8000)
-python main.py serve
+python main.py serve          # add --reload for development
 
 # Frontend (http://localhost:5173) — from the frontend/ directory
 npm install

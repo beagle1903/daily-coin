@@ -30,7 +30,7 @@ if [[ "${need_ci}" -eq 1 ]]; then
 fi
 
 echo "Starting Daily Coin API on 0.0.0.0:8000..."
-python main.py serve --host 0.0.0.0 --port 8000 &
+python main.py serve --host 0.0.0.0 --port 8000 --reload &
 API_PID=$!
 
 echo "Starting Vite frontend on 0.0.0.0:5173..."

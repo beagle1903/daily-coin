@@ -174,10 +174,8 @@ def test_generate_portfolio_error():
     with patch("server.run_portfolio_generation", AsyncMock(return_value=mock_result)), \
          patch("server.load_settings", return_value=SettingsModel(stable_count=3, volatile_count=6)):
         response = client.post("/api/portfolio/generate")
-        assert response.status_code == 200
-        data = response.json()
-        assert "error" in data
-        assert "Could not fetch valid symbols" in data["error"]
+        assert response.status_code == 502
+        assert "Could not fetch valid symbols" in response.json()["detail"]
 
 
 def test_generate_portfolio_uses_settings_fallback():
@@ -352,3 +350,24 @@ def test_generate_portfolio_uses_stored_variance_percentile():
         client.post("/api/portfolio/generate")
 
     mock_gen.assert_called_once_with(stable_count=3, volatile_count=6, variance_percentile=45.0)
+
+
+def test_history_keeps_old_records_without_picks_or_performance():
+    old = {"timestamp": 1.0, "portfolio": ["BTCUSDT"], "entry_prices": {"BTCUSDT": 10.0}, "evaluated": False}
+    with patch("server.load_history", return_value=[old]):
+        response = client.get("/api/history")
+    assert response.status_code == 200
+    assert response.json()[0]["portfolio"] == ["BTCUSDT"]
+
+
+def test_openapi_describes_generate_and_history_payloads():
+    schema = client.get("/openapi.json").json()
+    generate = schema["paths"]["/api/portfolio/generate"]["post"]["responses"]
+    assert "GenerateResponse" in str(generate["200"])
+    assert "502" in generate
+    assert "HistoryRecord" in str(schema["paths"]["/api/history"]["get"]["responses"]["200"])
+
+
+def test_cors_does_not_allow_credentials():
+    cors = next(m for m in app.user_middleware if m.cls.__name__ == "CORSMiddleware")
+    assert not cors.kwargs.get("allow_credentials", False)
