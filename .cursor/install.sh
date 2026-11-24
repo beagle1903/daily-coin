@@ -15,7 +15,7 @@ if [ ! -x venv/bin/python ]; then
   python3 -m venv venv
 fi
 ./venv/bin/pip install --upgrade pip
-./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install -r requirements-dev.txt
 
 # Frontend dependencies (clean, lockfile-pinned install).
 (cd frontend && npm ci)

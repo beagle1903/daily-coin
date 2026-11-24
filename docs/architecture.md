@@ -7,6 +7,7 @@
 - **Frontend:** Vite + React SPA in `frontend/`
 - **Data Integration:** `python-binance` for market prices.
 - **News Integration:** `feedparser` for RSS aggregation, `vaderSentiment` for NLP sentiment analysis.
+- **Dependencies:** `requirements.txt` holds the runtime packages, all pinned; `requirements-dev.txt` includes it and adds pytest, ruff and the TestClient HTTP client. CI, the Docker workspace, the dev container and `.cursor/install.sh` install the dev file. Dependabot (`.github/dependabot.yml`) opens weekly update PRs for pip, npm and GitHub Actions.
 - **Quality:** pytest, ruff (`E`, `F`, `I`, `B`; `target-version = "py312"`), and GitHub Actions CI on pull requests and pushes to `main`: a backend job (ruff + pytest on Python 3.12) and a frontend job (`npm ci`, `npm run lint`, `npm run build` on Node 22), with pip and npm caching.
 
 ## Project Structure

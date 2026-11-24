@@ -12,8 +12,10 @@ RUN apt-get update \
 
 WORKDIR /workspace
 
-COPY requirements.txt /workspace/requirements.txt
-RUN pip install --no-cache-dir -r /workspace/requirements.txt
+# The image is a development workspace (tests run in it, see docs/local-docker.md),
+# so it installs the dev set: runtime packages plus pytest and ruff.
+COPY requirements.txt requirements-dev.txt /workspace/
+RUN pip install --no-cache-dir -r /workspace/requirements-dev.txt
 
 COPY frontend/package.json frontend/package-lock.json /workspace/frontend/
 WORKDIR /workspace/frontend

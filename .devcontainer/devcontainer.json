@@ -15,7 +15,7 @@
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "pip install -r requirements.txt && (cd frontend && npm ci)",
+  "postCreateCommand": "pip install -r requirements-dev.txt && (cd frontend && npm ci)",
   "customizations": {
     "vscode": {
       "extensions": [
