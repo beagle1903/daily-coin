@@ -1,12 +1,13 @@
 import asyncio
+import calendar
+import logging
 import re
-import time
 
 import feedparser
 
 from constants import (
     NEWS_AMBIGUOUS_TICKERS,
-    NEWS_LIMIT,
+    NEWS_ANALYZE_LIMIT,
     NEWS_TICKER_MIN_LENGTH,
     VADER_CRYPTO_LEXICON,
     VADER_MULTIPLIER,
@@ -128,24 +129,32 @@ def find_mentioned_symbols(headline, ticker_map=None):
     return found
 
 
-async def get_latest_news(limit=NEWS_LIMIT):
+async def get_latest_news(limit=NEWS_ANALYZE_LIMIT):
+    """
+    Newest headlines across RSS_FEEDS, newest first: at most ``limit`` per feed and
+    ``limit`` in total. Timestamps are Unix seconds (UTC); undated entries get 0
+    and sort last. A feed that fails is logged and skipped.
+    """
     # Run the blocking feedparser.parse calls concurrently in background threads
     tasks = [asyncio.to_thread(feedparser.parse, url) for url in RSS_FEEDS]
     feeds = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     articles = []
-    for feed in feeds:
+    for url, feed in zip(RSS_FEEDS, feeds, strict=True):
         if isinstance(feed, Exception) or feed is None:
+            logging.warning(f"News feed {url} could not be fetched: {feed!r}")
             continue
         try:
             if getattr(feed, 'bozo', 0) == 1 and not feed.entries:
+                logging.warning(
+                    f"News feed {url} returned no entries: {getattr(feed, 'bozo_exception', 'malformed feed')!r}"
+                )
                 continue
             for entry in feed.entries[:limit]:
+                # feedparser's *_parsed values are UTC struct_time; timegm keeps them UTC
+                # (time.mktime would read them as local time)
                 dt_struct = entry.get('published_parsed') or entry.get('updated_parsed')
-                if dt_struct:
-                    timestamp = time.mktime(dt_struct)
-                else:
-                    timestamp = 0
+                timestamp = calendar.timegm(dt_struct) if dt_struct else 0
                     
                 source = feed.feed.get('title', 'Crypto News')
                 if 'Cointelegraph' in source:
@@ -159,9 +168,9 @@ async def get_latest_news(limit=NEWS_LIMIT):
                     "source": source,
                     "timestamp": timestamp
                 })
-        except Exception:
-            pass
-            
+        except Exception as exc:
+            logging.warning(f"News feed {url} could not be parsed: {exc!r}")
+
     articles.sort(key=lambda x: x['timestamp'], reverse=True)
     return articles[:limit]
 

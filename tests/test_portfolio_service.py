@@ -437,3 +437,36 @@ def test_blocking_calls_run_off_the_event_loop(tmp_path, monkeypatch):
 
     assert loop_threads == {False}
     assert ticks >= 10
+
+
+def test_generate_portfolio_scores_more_headlines_than_it_displays():
+    """Sentiment sees NEWS_ANALYZE_LIMIT headlines; the result shows NEWS_DISPLAY_LIMIT."""
+    from constants import NEWS_ANALYZE_LIMIT, NEWS_DISPLAY_LIMIT
+
+    market_data = {
+        "BTCUSDT": {"variance": 0.01, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+        "SOLUSDT": {"variance": 0.10, "rsi": 50.0, "macd": 0.0, "signal": 0.0},
+    }
+    prices = {symbol: 1.0 for symbol in market_data}
+    news = [
+        {"title": f"Headline {i}", "link": "", "source": "CoinDesk", "timestamp": 1000 - i}
+        for i in range(NEWS_DISPLAY_LIMIT + 10)
+    ]
+    get_news = AsyncMock(return_value=news)
+
+    with patch("portfolio_service.load_history", return_value=[]), \
+         patch("portfolio_service.get_unevaluated_records", return_value=[]), \
+         patch("portfolio_service.get_tradeable_symbols", return_value=list(market_data)), \
+         patch("portfolio_service.get_latest_news", get_news), \
+         patch("portfolio_service.fetch_all_market_data", AsyncMock(return_value=market_data)), \
+         patch("portfolio_service.analyze_news_impact", return_value=[]) as analyze, \
+         patch("portfolio_service.get_current_prices", return_value=prices), \
+         patch("portfolio_service.record_run"):
+        result = asyncio.run(
+            generate_portfolio(stable_count=1, volatile_count=1, variance_percentile=50.0)
+        )
+
+    assert NEWS_ANALYZE_LIMIT > NEWS_DISPLAY_LIMIT
+    get_news.assert_awaited_once_with(limit=NEWS_ANALYZE_LIMIT)
+    assert analyze.call_args.args[0] == news
+    assert result["news"] == news[:NEWS_DISPLAY_LIMIT]

@@ -10,7 +10,12 @@ from binance_client import (
     get_tradeable_symbols,
     mock_serve_count,
 )
-from constants import DEFAULT_VARIANCE_PERCENTILE, MIN_EVALUATION_AGE_SECONDS, NEWS_LIMIT
+from constants import (
+    DEFAULT_VARIANCE_PERCENTILE,
+    MIN_EVALUATION_AGE_SECONDS,
+    NEWS_ANALYZE_LIMIT,
+    NEWS_DISPLAY_LIMIT,
+)
 from history import get_unevaluated_records, load_history, record_run
 from logic import (
     compute_bucket_stats,
@@ -128,7 +133,8 @@ async def _generate_portfolio(stable_count: int, volatile_count: int, variance_p
             history = updated_history
 
     # 3. Fetch news and market data concurrently
-    news_task = get_latest_news(limit=NEWS_LIMIT)
+    # Sentiment uses the wider set of headlines; only the newest few are displayed
+    news_task = get_latest_news(limit=NEWS_ANALYZE_LIMIT)
     market_data_task = fetch_all_market_data(valid_symbols)
 
     news_items, market_data = await asyncio.gather(news_task, market_data_task)
@@ -216,7 +222,7 @@ async def _generate_portfolio(stable_count: int, volatile_count: int, variance_p
     return {
         "evaluation_results": evaluation_results,
         "held_evaluations": held_evaluations,
-        "news": news_items,
+        "news": news_items[:NEWS_DISPLAY_LIMIT],
         "sentiment_impacts": impacts,
         "portfolio": portfolio_items,
         "mock": is_mock,

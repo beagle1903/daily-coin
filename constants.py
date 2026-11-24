@@ -20,7 +20,10 @@ PORTFOLIO_COUNT_MAX = 50
 DEFAULT_STABLE_COUNT = 3
 DEFAULT_VOLATILE_COUNT = 6
 DEFAULT_VARIANCE_PERCENTILE = 33.3
-NEWS_LIMIT = 5
+# News: sentiment is scored over the newest NEWS_ANALYZE_LIMIT headlines (per feed
+# and in total); only the newest NEWS_DISPLAY_LIMIT are returned for display.
+NEWS_ANALYZE_LIMIT = 50
+NEWS_DISPLAY_LIMIT = 5
 
 # News headline matching (see news.find_mentioned_symbols)
 # A bare ticker shorter than this only counts when written as "$TICKER".

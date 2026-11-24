@@ -217,3 +217,53 @@ def test_analyze_news_impact_no_analyzer():
     with patch("news._get_analyzer", return_value=None):
         impacts = analyze_news_impact([{"title": "Bitcoin moon"}])
         assert impacts == []
+
+
+# --- timestamps and feed failures (#36) ---
+
+def test_get_latest_news_timestamps_are_utc():
+    """feedparser's parsed dates are UTC; the timestamp must not shift by the local offset."""
+    published = time.gmtime(1_700_000_000)
+    fake_feed = FakeFeed(entries=[FakeFeedEntry(published_parsed=published)], title="CoinDesk")
+
+    with patch("news.RSS_FEEDS", ["http://fake.com"]):
+        with patch("news.asyncio.to_thread", side_effect=[fake_feed]):
+            result = asyncio.run(get_latest_news(limit=5))
+
+    assert result[0]["timestamp"] == 1_700_000_000
+
+
+def test_get_latest_news_undated_entries_sort_last():
+    dated = FakeFeedEntry(title="Dated")
+    undated = FakeFeedEntry(title="Undated")
+    undated.published_parsed = None
+    fake_feed = FakeFeed(entries=[undated, dated], title="CoinDesk")
+
+    with patch("news.RSS_FEEDS", ["http://fake.com"]):
+        with patch("news.asyncio.to_thread", side_effect=[fake_feed]):
+            result = asyncio.run(get_latest_news(limit=5))
+
+    assert [a["title"] for a in result] == ["Dated", "Undated"]
+    assert result[1]["timestamp"] == 0
+
+
+def test_get_latest_news_logs_failed_feed(caplog):
+    good = FakeFeed(entries=[FakeFeedEntry(title="Still here")], title="CoinDesk")
+
+    with patch("news.RSS_FEEDS", ["http://bad.com", "http://good.com"]):
+        with patch("news.asyncio.to_thread", side_effect=[Exception("Network error"), good]):
+            with caplog.at_level("WARNING"):
+                result = asyncio.run(get_latest_news(limit=5))
+
+    assert [a["title"] for a in result] == ["Still here"]
+    assert "http://bad.com" in caplog.text
+    assert "Network error" in caplog.text
+
+
+def test_get_latest_news_logs_bozo_feed(caplog):
+    with patch("news.RSS_FEEDS", ["http://bozo.com"]):
+        with patch("news.asyncio.to_thread", side_effect=[FakeFeed(entries=[], bozo=1)]):
+            with caplog.at_level("WARNING"):
+                asyncio.run(get_latest_news(limit=5))
+
+    assert "http://bozo.com" in caplog.text
